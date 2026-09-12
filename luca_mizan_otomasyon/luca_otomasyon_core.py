@@ -1544,7 +1544,23 @@ class LucaOtomasyonCore:
         # Filtreleri yeniden uygula (sayfa yeniden yüklendiğinde filtreler kaybolur)
         self._filtreleri_uygula(log)
 
-    def mizan_raporu_olustur(self, kisa_ad: str, log: LogFn = _sessiz_log) -> Optional[Path]:
+    def mizan_raporu_olustur(
+        self,
+        kisa_ad: str,
+        log: LogFn = _sessiz_log,
+        baslangic: str = "",
+        bitis: str = "",
+    ) -> Optional[Path]:
+        """Seçili müşteri için Mizan raporu oluşturur.
+
+        Args:
+            kisa_ad: Müşterinin kısa adı
+            log: ilerleme mesajları için callback
+            baslangic: (Opsiyonel) GG/AA/YYYY formatında başlangıç tarihi.
+                Boş bırakılırsa dönem başından (ör. 01/01/2026) alınır.
+            bitis: (Opsiyonel) GG/AA/YYYY formatında bitiş tarihi.
+                Boş bırakılırsa dönem sonuna (ör. 31/12/2026) kadar alınır.
+        """
         if self.dashboard is None:
             raise RuntimeError("Önce baslat_ve_filtrele() ve musteri_sec() çağrılmalı.")
 
@@ -1685,9 +1701,46 @@ class LucaOtomasyonCore:
         mizan_frame.locator("#hesap_plani_dovizi_goster").select_option("0")
         mizan_frame.locator("#bakiye_tipi").select_option("2")
 
+        # --- Tarih aralığı (opsiyonel) ---
+        # Luca mizan formu, "Tarih Aralığı" bölümünde başlangıç/bitiş tarihlerini
+        # TARIH_ILK / TARIH_SON alanlarında tutar. Boş bırakılırsa dönemin
+        # tamamı (ör. 01/01/2026 - 31/12/2026) alınır; kullanıcı belirli bir
+        # aralık isterse bu iki alanı GG/AA/YYYY formatında doldururuz.
+        if baslangic or bitis:
+            log(f"Tarih aralığı uygulanıyor: {baslangic or 'başlangıç'} - {bitis or 'bitiş'}...")
+            tarih_ayar_js = """
+                (ilk, son) => {
+                    const ayarla = (alanAd, deger) => {
+                        if (!deger) return false;
+                        const el = document.querySelector('[name="' + alanAd + '"]');
+                        if (!el) return false;
+                        const setter = Object.getOwnPropertyDescriptor(
+                            HTMLInputElement.prototype, 'value'
+                        ).set;
+                        setter.call(el, deger);
+                        el.dispatchEvent(new Event('input', {bubbles: true}));
+                        el.dispatchEvent(new Event('change', {bubbles: true}));
+                        return true;
+                    };
+                    return {
+                        ilk: ayarla('TARIH_ILK', ilk),
+                        son: ayarla('TARIH_SON', son),
+                    };
+                }
+            """
+            try:
+                tarih_sonuc = mizan_frame.evaluate(tarih_ayar_js, [baslangic, bitis])
+                log(f"  Tarih alanları: {tarih_sonuc}")
+            except Exception as e:
+                log(f"  UYARI: Tarih alanları doldurulamadı: {str(e)[:120]}")
+
         log("Rapor oluşturuluyor...")
         self.cikti_klasoru.mkdir(parents=True, exist_ok=True)
-        hedef_dosya = self.cikti_klasoru / f"{kisa_ad}_Mizan_{self._son_yil}.xlsx"
+        if baslangic and bitis:
+            aralik_etiket = f"{baslangic.replace('/', '-')}_{bitis.replace('/', '-')}"
+            hedef_dosya = self.cikti_klasoru / f"{kisa_ad}_Mizan_{self._son_yil}_{aralik_etiket}.xlsx"
+        else:
+            hedef_dosya = self.cikti_klasoru / f"{kisa_ad}_Mizan_{self._son_yil}.xlsx"
 
         try:
             with self.dashboard.expect_download(timeout=15000) as indirme_bilgisi:
@@ -1713,6 +1766,8 @@ class LucaOtomasyonCore:
         musteriler: list[dict],
         log: LogFn = _sessiz_log,
         ilerleme_cb: "Callable[[int, int, dict], None] | None" = None,
+        baslangic: str = "",
+        bitis: str = "",
     ) -> list[dict]:
         """Filtrelenen tüm müşteriler için sırasıyla Mizan raporu oluşturur.
 
@@ -1724,6 +1779,8 @@ class LucaOtomasyonCore:
             log: ilerleme mesajları için callback
             ilerleme_cb: (mevcut_index, toplam, musteri_dict) çağrısı —
                 GUI ilerleme çubuğu için
+            baslangic: (Opsiyonel) GG/AA/YYYY formatında başlangıç tarihi
+            bitis: (Opsiyonel) GG/AA/YYYY formatında bitiş tarihi
 
         Returns:
             Her müşteri için {kisa_ad, uzun_ad, dosya_yolu, durum, hata}
@@ -1758,7 +1815,7 @@ class LucaOtomasyonCore:
 
             try:
                 self.musteri_sec(kisa_ad, log=log)
-                dosya = self.mizan_raporu_olustur(kisa_ad, log=log)
+                dosya = self.mizan_raporu_olustur(kisa_ad, log=log, baslangic=baslangic, bitis=bitis)
                 if dosya:
                     sonuc["dosya_yolu"] = str(dosya)
                     sonuc["durum"] = "başarılı"

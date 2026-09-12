@@ -278,6 +278,26 @@ class LucaGUI(ctk.CTk):
         )
         self.getir_btn.grid(row=1, column=4, padx=15, pady=5, sticky="w")
 
+        # --- Tarih araligi (opsiyonel) ---
+        tarih_satiri = ctk.CTkFrame(filtre_frame, fg_color="transparent")
+        tarih_satiri.grid(row=3, column=0, columnspan=6, padx=15, pady=(5, 5), sticky="ew")
+
+        ctk.CTkLabel(tarih_satiri, text="Tarih Araligi (bos = tum yil):", text_color="#cccccc").pack(
+            side="left", padx=(0, 8)
+        )
+        ctk.CTkLabel(tarih_satiri, text="Baslangic (GG/AA/YYYY):", text_color="#999999").pack(side="left", padx=(0, 4))
+        self.baslangic_entry = ctk.CTkEntry(
+            tarih_satiri, width=120, placeholder_text="01/01/2026",
+            fg_color="#2b2b2b", border_color="#555555",
+        )
+        self.baslangic_entry.pack(side="left", padx=(0, 8))
+        ctk.CTkLabel(tarih_satiri, text="Bitis (GG/AA/YYYY):", text_color="#999999").pack(side="left", padx=(0, 4))
+        self.bitis_entry = ctk.CTkEntry(
+            tarih_satiri, width=120, placeholder_text="31/12/2026",
+            fg_color="#2b2b2b", border_color="#555555",
+        )
+        self.bitis_entry.pack(side="left")
+
         # Musteri tablosu
         tablo_cercevesi = ctk.CTkFrame(filtre_frame, fg_color="transparent")
         tablo_cercevesi.grid(row=2, column=0, columnspan=6, padx=15, pady=(5, 15), sticky="nsew")
@@ -579,12 +599,19 @@ class LucaGUI(ctk.CTk):
                 messagebox.showwarning("Müşteri Seçilmedi", "Lütfen listeden bir müşteri seçin.")
                 return
         kisa_ad = self.secili_kisa_ad
+        baslangic = self.baslangic_entry.get().strip() if hasattr(self, "baslangic_entry") else ""
+        bitis = self.bitis_entry.get().strip() if hasattr(self, "bitis_entry") else ""
         self._mesgul_baslat(f"'{kisa_ad}' icin Mizan raporu olusturuluyor...")
 
         def is_parcasi():
             try:
                 self.core.musteri_sec(kisa_ad, log=lambda m: self.olay_kuyrugu.put(("log", m)))
-                dosya = self.core.mizan_raporu_olustur(kisa_ad, log=lambda m: self.olay_kuyrugu.put(("log", m)))
+                dosya = self.core.mizan_raporu_olustur(
+                    kisa_ad,
+                    log=lambda m: self.olay_kuyrugu.put(("log", m)),
+                    baslangic=baslangic,
+                    bitis=bitis,
+                )
                 self.core.musteri_kartina_don(log=lambda m: self.olay_kuyrugu.put(("log", m)))
                 self.olay_kuyrugu.put(("rapor_tamam", dosya))
             except Exception as e:
@@ -617,12 +644,16 @@ class LucaGUI(ctk.CTk):
             return
 
         self._mesgul_baslat(f"{len(tum_musteriler)} musteri icin toplu rapor olusturuluyor...")
+        baslangic = self.baslangic_entry.get().strip() if hasattr(self, "baslangic_entry") else ""
+        bitis = self.bitis_entry.get().strip() if hasattr(self, "bitis_entry") else ""
 
         def is_parcasi():
             try:
                 sonuclar = self.core.toplu_mizan_raporu(
                     tum_musteriler,
                     log=lambda m: self.olay_kuyrugu.put(("log", m)),
+                    baslangic=baslangic,
+                    bitis=bitis,
                 )
                 self.olay_kuyrugu.put(("toplu_rapor_tamam", sonuclar))
             except Exception as e:

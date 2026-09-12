@@ -1172,7 +1172,7 @@ class TestKapsamliSenaryolar(unittest.TestCase):
             sec_sayac[0] += 1
             return None
 
-        def mock_rapor(kisa_ad, log=None):
+        def mock_rapor(kisa_ad, log=None, baslangic="", bitis=""):
             rapor_sayac[0] += 1
             return Path(f"test_raporlar/{kisa_ad}_Mizan_2026.xlsx")
 
@@ -1378,6 +1378,62 @@ class TestSirketSecKombodan(unittest.TestCase):
         sonuc = core._sirket_sec_kombodan("ALİ BACAK", log=lambda m: None)
 
         self.assertFalse(sonuc)
+
+
+# ============================================================
+# Tarih aralığı (mizan raporu)
+# ============================================================
+
+class TestMizanTarihAraligi(unittest.TestCase):
+
+    def test_dosya_adi_tarih_araligi_icerir(self):
+        """Tarih aralığı verilirse dosya adına eklenmeli."""
+        core = LucaOtomasyonCore("1", "a", "b", cikti_klasoru="test_raporlar")
+        core.dashboard = MockPage()
+        core.liste_frame = MockFrame()
+        core._son_yil = "2026"
+        core.cikti_klasoru = Path("test_raporlar")
+
+        indirme = MagicMock()
+        indirme.save_as = MagicMock()
+        core.dashboard.expect_download = MagicMock(
+            return_value=MagicMock(__enter__=MagicMock(return_value=MagicMock(value=indirme)))
+        )
+
+        core._frame_bul = MagicMock(return_value=core.liste_frame)
+        core._rol_buton_tikla = MagicMock()
+        core._mizan_ac = MagicMock()
+
+        dosya = core.mizan_raporu_olustur(
+            "ALİ BACAK", log=lambda m: None,
+            baslangic="01/01/2026", bitis="31/03/2026",
+        )
+
+        self.assertIsNotNone(dosya)
+        self.assertIn("01-01-2026_31-03-2026", str(dosya))
+
+    def test_tarih_araligi_verilmezse_eski_isim(self):
+        """Tarih aralığı verilmezse eski dosya adı korunmalı."""
+        core = LucaOtomasyonCore("1", "a", "b", cikti_klasoru="test_raporlar")
+        core.dashboard = MockPage()
+        core.liste_frame = MockFrame()
+        core._son_yil = "2026"
+        core.cikti_klasoru = Path("test_raporlar")
+
+        indirme = MagicMock()
+        indirme.save_as = MagicMock()
+        core.dashboard.expect_download = MagicMock(
+            return_value=MagicMock(__enter__=MagicMock(return_value=MagicMock(value=indirme)))
+        )
+
+        core._frame_bul = MagicMock(return_value=core.liste_frame)
+        core._rol_buton_tikla = MagicMock()
+        core._mizan_ac = MagicMock()
+
+        dosya = core.mizan_raporu_olustur("ALİ BACAK", log=lambda m: None)
+
+        self.assertIsNotNone(dosya)
+        self.assertIn("ALİ BACAK_Mizan_2026.xlsx", str(dosya))
 
 
 if __name__ == "__main__":
