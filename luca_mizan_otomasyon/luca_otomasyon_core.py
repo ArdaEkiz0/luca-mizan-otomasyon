@@ -1207,9 +1207,10 @@ class LucaOtomasyonCore:
         musteri_bulundu = False
         try:
             for cv in self.dashboard.frames:
-                if "musteriBilgileri" in cv.url or "sirketDetay" in cv.url:
+                if ("musteriBilgileri" in cv.url or "sirketDetay" in cv.url
+                        or "selectSirketAction" in cv.url or "editSirketAction" in cv.url):
                     musteri_bulundu = True
-                    log(f"  Müşteri sayfası frame bulundu: {cv.url[:80]}")
+                    log(f"  Müşteri sayfası doğrulandı: {cv.url[:80]}")
                     break
         except Exception:
             pass
@@ -1246,7 +1247,8 @@ class LucaOtomasyonCore:
                 log(f"  Alternatif dblclick event: {alt_result}")
                 self.dashboard.wait_for_timeout(3000)
                 for cv in self.dashboard.frames:
-                    if "musteriBilgileri" in cv.url or "sirketDetay" in cv.url:
+                    if ("musteriBilgileri" in cv.url or "sirketDetay" in cv.url
+                            or "selectSirketAction" in cv.url or "editSirketAction" in cv.url):
                         musteri_bulundu = True
                         log(f"  Alternatif yöntemle müşteri bulundu: {cv.url[:80]}")
                         break
@@ -1366,7 +1368,9 @@ class LucaOtomasyonCore:
         try:
             for cv in self.dashboard.frames:
                 try:
-                    if "musteriBilgileri" in cv.url or "rapor" in cv.url.lower():
+                    if ("musteriBilgileri" in cv.url or "rapor" in cv.url.lower()
+                            or "selectSirket" in cv.url or "editSirket" in cv.url
+                            or "listSirket" in cv.url):
                         cv.goto(musteri_listesi_url, wait_until="domcontentloaded", timeout=30000)
                         cv.wait_for_timeout(1000)
                         navigasyon_basrildi = True
@@ -1411,14 +1415,26 @@ class LucaOtomasyonCore:
                 f"?time={int(_zaman() * 1000)}"
             )
             for cv in self.dashboard.frames:
-                if "musteriBilgileri" in cv.url or "rapor" in cv.url.lower():
+                if ("musteriBilgileri" in cv.url or "rapor" in cv.url.lower()
+                        or "selectSirket" in cv.url or "editSirket" in cv.url
+                        or "listSirket" in cv.url):
                     cv.goto(url, wait_until="domcontentloaded", timeout=30000)
                     cv.wait_for_timeout(500)
                     log(f"  Mizan açıldı: {cv.url}")
                     return
+            # Son çare: main page'de rapor frame'i ara
+            for cv in self.dashboard.frames:
+                try:
+                    if cv.url and "luca.do" not in cv.url and "header" not in cv.url and "menu" not in cv.url:
+                        cv.goto(url, wait_until="domcontentloaded", timeout=30000)
+                        cv.wait_for_timeout(500)
+                        log(f"  Mizan açıldı (fallback): {cv.url}")
+                        return
+                except Exception:
+                    continue
             self.dashboard.goto(url, wait_until="domcontentloaded", timeout=30000)
             self.dashboard.wait_for_timeout(500)
-            log(f"  Mizan açıldı: {self.dashboard.url}")
+            log(f"  Mizan açıldı (main page): {self.dashboard.url}")
 
         _mizan_ac()
 
