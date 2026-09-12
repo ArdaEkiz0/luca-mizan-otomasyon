@@ -182,6 +182,19 @@ class Isci:
 ISCI = Isci()
 
 
+def _sinif_kod_bul(sinif_girdi: str) -> str:
+    """Kullanıcının seçtiği sınıfı Luca'nın beklediği koda çevirir.
+
+    Frontend'ten '1.Sinif' (etiket) veya '1' (kod) gelebilir. Luca'nın
+    #SINIF select'i KOD bekler ('1','2',...), etiket beklenmez.
+    """
+    girdi = str(sinif_girdi or "").strip()
+    for kod, etiket in SINIFLAR:
+        if kod == girdi or etiket == girdi:
+            return kod
+    return girdi
+
+
 class ApiHandler(BaseHTTPRequestHandler):
     def _json(self, veri: dict, durum: int = 200) -> None:
         govde = json.dumps(veri, ensure_ascii=False).encode("utf-8")
@@ -297,7 +310,7 @@ class ApiHandler(BaseHTTPRequestHandler):
         kullanici_adi = str(veri.get("kullanici_adi", "")).strip()
         parola = str(veri.get("parola", ""))
         yil = str(veri.get("yil", "2026"))
-        sinif = str(veri.get("sinif", "1"))
+        sinif = _sinif_kod_bul(veri.get("sinif", "1"))
 
         if not uye_no or not kullanici_adi or not parola:
             DURUM.durum_bitir("Eksik giris bilgisi.", "hata")
@@ -446,8 +459,7 @@ class ApiHandler(BaseHTTPRequestHandler):
         self._json({"ok": True})
 
     def _ayar_kaydet(self, veri: dict) -> None:
-        sinif_etiket = str(veri.get("sinif", "1.Sinif"))
-        sinif_kodu = next((k for k, e in SINIFLAR if e == sinif_etiket), "1")
+        sinif_kodu = _sinif_kod_bul(veri.get("sinif", "1.Sinif"))
         _env_kaydet(
             str(veri.get("uye_no", "")).strip(),
             str(veri.get("kullanici_adi", "")).strip(),

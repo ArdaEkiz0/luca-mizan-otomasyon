@@ -309,15 +309,13 @@ function secenekDoldur() {
     ];
     siniflar.forEach(([k, e]) => {
       const o = document.createElement("option");
-      o.value = e;
-      o.dataset.kod = k;
-      o.textContent = e;
+      o.value = k;          // Luca KOD bekler: '1','2',...
+      o.textContent = e;    // ekranda etiket görünür
       sinifSec.appendChild(o);
     });
-    // sinif değerini kod üzerinden eşle
-    Array.from(sinifSec.options).forEach(o => {
-      if (o.dataset.kod === (a.sinif || "1")) sinifSec.value = o.value;
-    });
+    // kayıtlı sınıfı kod üzerinden eşle
+    const seciliKod = (a.sinif || "1");
+    sinifSec.value = siniflar.some(([k]) => k === seciliKod) ? seciliKod : "1";
 
     sec("uyeNo").value = a.uye_no || "";
     sec("kullaniciAdi").value = a.kullanici_adi || "";

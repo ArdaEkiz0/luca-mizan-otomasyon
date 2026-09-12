@@ -1508,6 +1508,16 @@ class TestArayuzModulu(unittest.TestCase):
         web_ui._temiz_kapat(sunucu)
         self.assertTrue(True)
 
+    def test_sinif_kod_bul(self):
+        """Etiket veya kod girdisinden Luca'nın beklediği sınıf kodu dönmeli."""
+        import web_ui
+        self.assertEqual(web_ui._sinif_kod_bul("1.Sinif"), "1")
+        self.assertEqual(web_ui._sinif_kod_bul("2.Sinif"), "2")
+        self.assertEqual(web_ui._sinif_kod_bul("Isletme Defteri"), "3")
+        self.assertEqual(web_ui._sinif_kod_bul("1"), "1")
+        self.assertEqual(web_ui._sinif_kod_bul("Tumu"), "")
+        self.assertEqual(web_ui._sinif_kod_bul(""), "")
+
 
 if __name__ == "__main__":
     test_klasor = Path("test_raporlar")
