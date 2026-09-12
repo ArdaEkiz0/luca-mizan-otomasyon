@@ -18,6 +18,7 @@ from __future__ import annotations
 import datetime
 import os
 import queue
+import subprocess
 import sys
 import threading
 import traceback
@@ -359,10 +360,94 @@ class LucaGUI(ctk.CTk):
         self.ilerleme = ctk.CTkProgressBar(durum_satiri, mode="indeterminate", width=220)
         self.ilerleme.grid(row=0, column=1, sticky="e")
 
+        # --- Indirilen Raporlar ---
+        rapor_frame = ctk.CTkFrame(self, fg_color=RENKLER["panel_arka"], corner_radius=10)
+        rapor_frame.grid(row=4, column=0, padx=20, pady=(5, 5), sticky="ew")
+
+        rapor_baslik_frame = ctk.CTkFrame(rapor_frame, fg_color="transparent")
+        rapor_baslik_frame.pack(fill="x", padx=15, pady=(10, 5))
+
+        rapor_baslik = ctk.CTkLabel(
+            rapor_baslik_frame,
+            text="Indirilen Raporlar",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=RENKLER["baslik"],
+        )
+        rapor_baslik.pack(side="left")
+
+        self.rapor_sayisi_var = ctk.StringVar(value="")
+        ctk.CTkLabel(
+            rapor_baslik_frame,
+            textvariable=self.rapor_sayisi_var,
+            font=ctk.CTkFont(size=11),
+            text_color="#888888",
+        ).pack(side="left", padx=(10, 0))
+
+        butonlar_frame = ctk.CTkFrame(rapor_frame, fg_color="transparent")
+        butonlar_frame.pack(fill="x", padx=15, pady=(0, 10))
+
+        self.ac_btn = ctk.CTkButton(
+            butonlar_frame, text="Raporu Ac", state="disabled", width=100,
+            fg_color="#28a745", hover_color="#218838",
+            command=self._secili_raporu_ac,
+        )
+        self.ac_btn.pack(side="left", padx=(0, 8))
+
+        self.klasor_btn = ctk.CTkButton(
+            butonlar_frame, text="Klasoru Ac", state="disabled", width=100,
+            fg_color="#6c757d", hover_color="#5a6268",
+            command=self._rapor_klasorunu_ac,
+        )
+        self.klasor_btn.pack(side="left", padx=(0, 8))
+
+        self.temizle_btn = ctk.CTkButton(
+            butonlar_frame, text="Listeyi Temizle", width=110,
+            fg_color="#555555", hover_color="#666666",
+            command=self._rapor_listesini_temizle,
+        )
+        self.temizle_btn.pack(side="left")
+
+        # Rapor tablosu
+        rapor_tablo_frame = ctk.CTkFrame(rapor_frame, fg_color="transparent")
+        rapor_tablo_frame.pack(fill="x", padx=15, pady=(0, 10))
+
+        stil2 = ttk.Style()
+        stil2.configure("Rapor.Treeview",
+                       background="#1e1e1e",
+                       foreground="#4fc3f7",
+                       fieldbackground="#1e1e1e",
+                       rowheight=24,
+                       font=("Consolas", 10))
+        stil2.configure("Rapor.Treeview.Heading",
+                       background="#3d3d3d",
+                       foreground="#ffffff",
+                       font=("Segoe UI", 9, "bold"))
+        stil2.map("Rapor.Treeview", background=[("selected", "#1a8cff")])
+
+        rapor_kolonlar = ("dosya", "boyut", "tarih")
+        self.rapor_tablo = ttk.Treeview(
+            rapor_tablo_frame, columns=rapor_kolonlar, show="headings",
+            height=4, selectmode="browse", style="Rapor.Treeview",
+        )
+        self.rapor_tablo.heading("dosya", text="Dosya Adi")
+        self.rapor_tablo.heading("boyut", text="Boyut")
+        self.rapor_tablo.heading("tarih", text="Tarih")
+        self.rapor_tablo.column("dosya", width=350)
+        self.rapor_tablo.column("boyut", width=80)
+        self.rapor_tablo.column("tarih", width=140)
+        self.rapor_tablo.pack(side="left", fill="x", expand=True)
+        self.rapor_tablo.bind("<Double-1>", lambda e: self._secili_raporu_ac())
+
+        rapor_kaydirma = ttk.Scrollbar(rapor_tablo_frame, orient="vertical", command=self.rapor_tablo.yview)
+        self.rapor_tablo.configure(yscrollcommand=rapor_kaydirma.set)
+        rapor_kaydirma.pack(side="right", fill="y")
+
+        self.indirilen_raporlar: list[dict] = []
+
         # --- Log alani ---
         log_frame = ctk.CTkFrame(self, fg_color=RENKLER["panel_arka"], corner_radius=10)
-        log_frame.grid(row=4, column=0, padx=20, pady=(5, 16), sticky="nsew")
-        self.grid_rowconfigure(4, weight=1)
+        log_frame.grid(row=5, column=0, padx=20, pady=(5, 16), sticky="nsew")
+        self.grid_rowconfigure(5, weight=1)
 
         log_baslik = ctk.CTkLabel(
             log_frame,
@@ -564,6 +649,75 @@ class LucaGUI(ctk.CTk):
         self._tarayiciyi_kapat(sessiz=True)
         self.destroy()
 
+    def _rapor_ekle(self, dosya_yolu) -> None:
+        """Indirilen raporu listeye ekle."""
+        if dosya_yolu is None:
+            return
+        dosya = Path(dosya_yolu)
+        if not dosya.exists():
+            return
+
+        boyut = dosya.stat().st_size
+        if boyut > 1024 * 1024:
+            boyut_str = f"{boyut / (1024 * 1024):.1f} MB"
+        elif boyut > 1024:
+            boyut_str = f"{boyut / 1024:.1f} KB"
+        else:
+            boyut_str = f"{boyut} B"
+
+        tarih = datetime.datetime.fromtimestamp(dosya.stat().st_mtime).strftime("%d.%m.%Y %H:%M")
+
+        self.rapor_tablo.insert("", "end", values=(dosya.name, boyut_str, tarih))
+        self.indirilen_raporlar.append({"dosya": dosya, "boyut": boyut_str, "tarih": tarih})
+
+        sayi = len(self.indirilen_raporlar)
+        self.rapor_sayisi_var.set(f"({sayi} dosya)")
+        self.ac_btn.configure(state="normal")
+        self.klasor_btn.configure(state="normal")
+
+    def _secili_raporu_ac(self) -> None:
+        """Secili rapor dosyasini varsayilan uygulama ile ac."""
+        secim = self.rapor_tablo.selection()
+        if not secim:
+            return
+        degerler = self.rapor_tablo.item(secim[0], "values")
+        dosya_adi = degerler[0]
+
+        for rapor in self.indirilen_raporlar:
+            if rapor["dosya"].name == dosya_adi:
+                try:
+                    os.startfile(str(rapor["dosya"]))
+                    self._log(f"Dosya aciliyor: {rapor['dosya'].name}")
+                except Exception as e:
+                    self._log(f"Dosya acilamadi: {e}")
+                    try:
+                        subprocess.Popen(["explorer", str(rapor["dosya"])])
+                    except Exception:
+                        pass
+                return
+
+    def _rapor_klasorunu_ac(self) -> None:
+        """Raporlar klasorunu ac."""
+        klasor = Path("raporlar")
+        if not klasor.exists():
+            klasor.mkdir(parents=True, exist_ok=True)
+        try:
+            os.startfile(str(klasor.resolve()))
+        except Exception:
+            try:
+                subprocess.Popen(["explorer", str(klasor.resolve())])
+            except Exception as e:
+                self._log(f"Klasor acilamadi: {e}")
+
+    def _rapor_listesini_temizle(self) -> None:
+        """Rapor listesini temizle."""
+        for cocuk in self.rapor_tablo.get_children():
+            self.rapor_tablo.delete(cocuk)
+        self.indirilen_raporlar.clear()
+        self.rapor_sayisi_var.set("")
+        self.ac_btn.configure(state="disabled")
+        self.klasor_btn.configure(state="disabled")
+
     def _kuyrugu_dinle(self) -> None:
         try:
             while True:
@@ -589,6 +743,7 @@ class LucaGUI(ctk.CTk):
                     dosya = olay[1]
                     if dosya:
                         self._log(f"BASARILI: Rapor kaydedildi -> {dosya}")
+                        self._rapor_ekle(dosya)
                         self._mesgul_bitir("Rapor olusturuldu.")
                     else:
                         self._mesgul_bitir("Rapor kuyruka alindi (Rapor Takip'ten indirin).")
@@ -603,6 +758,8 @@ class LucaGUI(ctk.CTk):
                             self._log(f"  X {s['kisa_ad']}: {s['hata']}")
                         else:
                             self._log(f"  OK {s['kisa_ad']}: {s['dosya_yolu'] or 'kuyruka alindi'}")
+                            if s.get("dosya_yolu"):
+                                self._rapor_ekle(s["dosya_yolu"])
                     self._mesgul_bitir(f"Toplu rapor tamamlandi ({basarili} basarili, {basarisiz} hatali)")
 
                 elif tur == "hata":
