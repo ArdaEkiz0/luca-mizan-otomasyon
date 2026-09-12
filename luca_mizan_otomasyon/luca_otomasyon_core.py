@@ -1046,10 +1046,13 @@ class LucaOtomasyonCore:
                 if not self._musteri_listesi_sayfasi.is_closed():
                     self.dashboard = self._musteri_listesi_sayfasi
                     self.dashboard.bring_to_front()
-                    self.dashboard.wait_for_timeout(500)
+                    self.dashboard.wait_for_timeout(1000)
                     self.liste_frame = self._frame_bul(self.dashboard, "#YIL")
                     # Tablonun hazır olmasını bekle
-                    self.liste_frame.wait_for_selector("table.data-table", timeout=10000)
+                    self.liste_frame.wait_for_selector("table.data-table", timeout=15000)
+                    # Satırların yüklenmesini bekle
+                    self.liste_frame.wait_for_selector("table.data-table tr.satir", timeout=15000)
+                    log("  Müşteri listesine geri dönüldü.")
                     return
             except Exception:
                 log("  Saklanan müşteri listesi sekmesine dönülemedi, alternatif yöntem deneniyor...")
@@ -1058,8 +1061,10 @@ class LucaOtomasyonCore:
         try:
             self.dashboard.go_back()
             self.dashboard.wait_for_load_state("domcontentloaded")
-            self.dashboard.wait_for_timeout(1000)
+            self.dashboard.wait_for_timeout(2000)
             self.liste_frame = self._frame_bul(self.dashboard, "#YIL")
+            self.liste_frame.wait_for_selector("table.data-table tr.satir", timeout=15000)
+            log("  Geri gidilerek müşteri listesine dönüldü.")
             return
         except Exception:
             pass
@@ -1077,13 +1082,15 @@ class LucaOtomasyonCore:
                 if "musteriBilgileri" in cv.url or "rapor" in cv.url.lower():
                     cv.goto(musteri_listesi_url, wait_until="domcontentloaded", timeout=30000)
                     cv.wait_for_timeout(2000)
-                    log(f"  Doğrudan URL ile müşteri listesine dönüldü.")
                     self.liste_frame = self._frame_bul(self.dashboard, "#YIL")
+                    self.liste_frame.wait_for_selector("table.data-table tr.satir", timeout=15000)
+                    log(f"  Doğrudan URL ile müşteri listesine dönüldü.")
                     return
             self.dashboard.goto(musteri_listesi_url, wait_until="domcontentloaded", timeout=30000)
             self.dashboard.wait_for_timeout(2000)
-            log(f"  Doğrudan URL ile müşteri listesine dönüldü.")
             self.liste_frame = self._frame_bul(self.dashboard, "#YIL")
+            self.liste_frame.wait_for_selector("table.data-table tr.satir", timeout=15000)
+            log(f"  Doğrudan URL ile müşteri listesine dönüldü.")
         except Exception as e:
             raise RuntimeError(f"Müşteri listesine ne go_back ne de doğrudan URL ile dönülemedi: {e}")
 
