@@ -886,6 +886,11 @@ class LucaOtomasyonCore:
             pass
 
         self.dashboard.wait_for_load_state("domcontentloaded")
+        # Sayfa hâlâ about:blank veya geçiş aşamasındaysa yüklenmesini bekle
+        for _ in range(20):
+            if self.dashboard.url and "about:blank" not in self.dashboard.url:
+                break
+            self.dashboard.wait_for_timeout(500)
         self.dashboard.wait_for_timeout(1000)
 
         if not _sayfa_hayatta_mi(self.dashboard):
