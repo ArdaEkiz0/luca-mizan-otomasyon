@@ -198,7 +198,7 @@ class LucaOtomasyonCore:
         return False
 
     def _rol_buton_tikla(
-        self, frame: Frame, isim: str, log: LogFn = _sessiz_log, birincil_zaman_asimi: int = 15000
+        self, frame: Frame, isim: str, log: LogFn = _sessiz_log, birincil_zaman_asimi: int = 5000
     ) -> None:
         """Erişilebilirlik adına (accessible name) göre bir düğmeye tıklar.
 
@@ -239,7 +239,7 @@ class LucaOtomasyonCore:
             if sayi == 0:
                 continue
             try:
-                adaylar.first.click(timeout=5000)
+                adaylar.first.click(timeout=3000)
                 log(f"  '{isim}' düğmesi yedek yöntemle bulunup tıklandı ({secici}).")
                 return
             except Exception as e:
@@ -253,7 +253,7 @@ class LucaOtomasyonCore:
             genel = frame.get_by_text(isim, exact=True)
             sayi = genel.count()
             if sayi > 0:
-                genel.first.click(timeout=5000)
+                genel.first.click(timeout=3000)
                 log(f"  '{isim}' metni genel arama ile bulunup tıklandı ({sayi} eşleşme).")
                 return
             log(f"    [genel metin araması] '{isim}' ile tam eşleşen hiçbir eleman bulunamadı.")
@@ -886,7 +886,7 @@ class LucaOtomasyonCore:
             pass
 
         self.dashboard.wait_for_load_state("domcontentloaded")
-        self.dashboard.wait_for_timeout(2000)
+        self.dashboard.wait_for_timeout(1000)
 
         if not _sayfa_hayatta_mi(self.dashboard):
             raise RuntimeError(
@@ -1095,8 +1095,8 @@ class LucaOtomasyonCore:
         # ADIM 4: Yıl seçimi sayfayı yeniden yükler, frame'i yeniden bul
         try:
             self.liste_frame.wait_for_load_state("domcontentloaded")
-            self.liste_frame.wait_for_timeout(1000)
-            self.liste_frame = self._frame_bul(self.dashboard, "#YIL", deneme=20, bekleme_ms=500)
+            self.liste_frame.wait_for_timeout(500)
+            self.liste_frame = self._frame_bul(self.dashboard, "#YIL", deneme=15, bekleme_ms=300)
             log("  Sayfa yeniden yüklendi, frame bulundu.")
         except Exception as e:
             log(f"  HATA: Sayfa yeniden yüklendikten sonra frame bulunamadı: {e}")
@@ -1128,9 +1128,9 @@ class LucaOtomasyonCore:
             return
 
         # ADIM 8: Tablonun yüklenmesini bekle
-        self.liste_frame.wait_for_timeout(2000)
+        self.liste_frame.wait_for_timeout(500)
         try:
-            self.liste_frame.wait_for_selector("table.data-table tr.satir", timeout=15000)
+            self.liste_frame.wait_for_selector("table.data-table tr.satir", timeout=10000)
             satir_sayisi = self.liste_frame.locator("table.data-table tr.satir").count()
             log(f"  Filtre uygulandı, tablo yüklendi ({satir_sayisi} satır).")
         except Exception as e:
@@ -1162,7 +1162,7 @@ class LucaOtomasyonCore:
                 try:
                     if "musteriBilgileri" in cv.url or "rapor" in cv.url.lower():
                         cv.goto(musteri_listesi_url, wait_until="domcontentloaded", timeout=30000)
-                        cv.wait_for_timeout(2000)
+                        cv.wait_for_timeout(1000)
                         navigasyon_basrildi = True
                         log("  Doğrudan URL ile müşteri listesine dönüldü (frame).")
                         break
@@ -1174,7 +1174,7 @@ class LucaOtomasyonCore:
         if not navigasyon_basrildi:
             try:
                 self.dashboard.goto(musteri_listesi_url, wait_until="domcontentloaded", timeout=30000)
-                self.dashboard.wait_for_timeout(2000)
+                self.dashboard.wait_for_timeout(1000)
                 log("  Doğrudan URL ile müşteri listesine dönüldü (sayfa).")
             except Exception as e:
                 raise RuntimeError(f"Müşteri listesine dönülemedi: {e}")
@@ -1207,11 +1207,11 @@ class LucaOtomasyonCore:
             for cv in self.dashboard.frames:
                 if "musteriBilgileri" in cv.url or "rapor" in cv.url.lower():
                     cv.goto(url, wait_until="domcontentloaded", timeout=30000)
-                    cv.wait_for_timeout(1000)
+                    cv.wait_for_timeout(500)
                     log(f"  Mizan açıldı: {cv.url}")
                     return
             self.dashboard.goto(url, wait_until="domcontentloaded", timeout=30000)
-            self.dashboard.wait_for_timeout(1000)
+            self.dashboard.wait_for_timeout(500)
             log(f"  Mizan açıldı: {self.dashboard.url}")
 
         _mizan_ac()
@@ -1227,8 +1227,8 @@ class LucaOtomasyonCore:
         hedef_dosya = self.cikti_klasoru / f"{kisa_ad}_Mizan_{self._son_yil}.xlsx"
 
         try:
-            with self.dashboard.expect_download(timeout=20000) as indirme_bilgisi:
-                self._rol_buton_tikla(mizan_frame, "Rapor", log, birincil_zaman_asimi=10000)
+            with self.dashboard.expect_download(timeout=15000) as indirme_bilgisi:
+                self._rol_buton_tikla(mizan_frame, "Rapor", log, birincil_zaman_asimi=5000)
             indirme = indirme_bilgisi.value
             indirme.save_as(str(hedef_dosya))
             log(f"Rapor indirildi: {hedef_dosya}")
@@ -1323,9 +1323,9 @@ class LucaOtomasyonCore:
                             f"?time={int(_zaman() * 1000)}"
                         )
                         self.dashboard.goto(url, wait_until="domcontentloaded", timeout=30000)
-                        self.dashboard.wait_for_timeout(2000)
+                        self.dashboard.wait_for_timeout(1000)
                         self.liste_frame = self._frame_bul(self.dashboard, "#YIL")
-                        self.liste_frame.wait_for_selector("table.data-table", timeout=15000)
+                        self.liste_frame.wait_for_selector("table.data-table", timeout=10000)
                         self._filtreleri_uygula(log)
                         log("  Kurtarma başarılı, listeye dönüldü.")
                     except Exception:
