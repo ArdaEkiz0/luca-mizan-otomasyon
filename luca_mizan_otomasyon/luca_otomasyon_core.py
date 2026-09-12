@@ -986,11 +986,143 @@ class LucaOtomasyonCore:
     # Aşama 2: Müşteri seçimi + Mizan raporu
     # ------------------------------------------------------------------
 
+    def _sirket_sec_kombodan(self, kisa_ad: str, log: LogFn = _sessiz_log) -> bool:
+        """TopFrameAction frame'indeki SirketCombo + DonemCombo + Tamam
+        akışıyla 'çalışılan firma'yı değiştir.
+
+        KRİTİK: Luca'da raporun hangi firma için hazırlanacağını belirleyen
+        şey müşteri listesindeki satıra tıklamak DEĞİL, sağ üstteki firma
+        seçicisidir (SirketCombo). Seçim + Tamam sonrası TopFrameAction
+        URL'i şuna döner:
+            TopFrameAction.do?...&SIRKET_ID=<id>&DONEM_ID=<donem>&DONEM_TXT=...
+        Bu yöntem başarılıysa True döner."""
+        top_frame = None
+        for cv in self.dashboard.frames:
+            try:
+                if "TopFrameAction" in cv.url:
+                    top_frame = cv
+                    break
+            except Exception:
+                continue
+        if top_frame is None:
+            log("  UYARI: TopFrameAction frame'i bulunamadı.")
+            return False
+
+        try:
+            top_frame.wait_for_selector("#SirketCombo", timeout=10000)
+        except Exception:
+            log("  UYARI: #SirketCombo bulunamadı.")
+            return False
+
+        combo = top_frame.locator("#SirketCombo")
+        secenekler = []
+        adet = combo.locator("option").count()
+        for i in range(adet):
+            try:
+                metin = combo.locator("option").nth(i).inner_text().strip()
+                deger = combo.locator("option").nth(i).get_attribute("value")
+            except Exception:
+                continue
+            secenekler.append((metin, deger, i))
+        if not secenekler:
+            log("  UYARI: SirketCombo seçenekleri okunamadı.")
+            return False
+
+        secili = None
+        for metin, deger, i in secenekler:
+            if metin == kisa_ad:
+                secili = i
+                break
+        if secili is None:
+            adaylar = []
+            for metin, deger, i in secenekler:
+                if not metin:
+                    continue
+                if metin == kisa_ad[: len(metin)]:
+                    adaylar.append((metin, deger, i))
+                elif kisa_ad == metin[: len(kisa_ad)]:
+                    adaylar.append((metin, deger, i))
+            if adaylar:
+                adaylar.sort(key=lambda x: len(x[0]), reverse=True)
+                secili = adaylar[0][2]
+        if secili is None:
+            log(f"  UYARI: '{kisa_ad}' SirketCombo'da bulunamadı.")
+            return False
+
+        secilen_metin = secenekler[secili][0]
+        mevcut_index = combo.evaluate("el => el.selectedIndex")
+        if mevcut_index != secili:
+            combo.select_option(index=secili)
+            top_frame.wait_for_timeout(1500)  # loadDonem() AJAX'ı dönemleri doldursun
+            log(f"  SirketCombo'dan '{secilen_metin}' seçildi.")
+        else:
+            log(f"  '{secilen_metin}' zaten seçili.")
+
+        # Dönem combo'su — _son_yil içeren (ör. 2026) dönemi seç
+        try:
+            donem = top_frame.locator("#DonemCombo")
+            donem.wait_for_selector("option", timeout=10000)
+            hedef = str(self._son_yil)
+            secildi = False
+            d_adet = donem.locator("option").count()
+            for i in range(d_adet):
+                try:
+                    d_metin = donem.locator("option").nth(i).inner_text()
+                except Exception:
+                    continue
+                if d_metin and hedef in d_metin:
+                    donem.select_option(index=i)
+                    log(f"  Dönem seçildi: {d_metin.strip()}")
+                    secildi = True
+                    break
+            if not secildi and d_adet > 1:
+                donem.select_option(index=1)
+                log("  Dönem eşleşmedi, ilk dönem seçildi.")
+        except Exception as e:
+            log(f"  UYARI: Dönem seçilemedi: {str(e)[:100]}")
+
+        # Tamam -> formSubmit(event, 0)
+        try:
+            sonuc = top_frame.evaluate(
+                """() => {
+                    if (typeof formSubmit === 'function') {
+                        formSubmit(null, 0);
+                        return {ok: true};
+                    }
+                    return {ok: false, msg: 'formSubmit yok'};
+                }"""
+            )
+            log(f"  formSubmit çağrıldı: {sonuc}")
+        except Exception as e:
+            log(f"  formSubmit hatası: {str(e)[:120]}")
+            return False
+
+        top_frame.wait_for_timeout(3000)
+        # Doğrula: TopFrameAction URL'i SIRKET_ID içeriyor mu?
+        for cv in self.dashboard.frames:
+            try:
+                if "TopFrameAction" in cv.url and "SIRKET_ID" in cv.url:
+                    log(f"  Firma değişti: {cv.url[:140]}")
+                    return True
+            except Exception:
+                continue
+        log("  Firma değişimi doğrulanamadı ama devam ediliyor.")
+        return True
+
     def musteri_sec(self, kisa_ad: str, log: LogFn = _sessiz_log) -> None:
         if self.liste_frame is None:
             raise RuntimeError("Önce baslat_ve_filtrele() çağrılmalı.")
         log(f"'{kisa_ad}' seçilip müşteri kartı açılıyor...")
 
+        # --- BİRİNCİL YÖNTEM: SirketCombo ile 'çalışılan firma'yı değiştir ---
+        # Luca'da raporun hangi firmaya ait olacağını belirleyen şey sağ
+        # üstteki firma seçicisidir (SirketCombo + Tamam). Bu akış başarılı
+        # olursa eski dblclick akışına hiç gerek kalmaz.
+        if self._sirket_sec_kombodan(kisa_ad, log):
+            log(f"  '{kisa_ad}' SirketCombo ile çalışılan firma yapıldı.")
+            return
+
+        # --- YEDEK: dblclick akışı (eski yöntem) ---
         # Frame her çağrıyı yeniden bul — musteri_kartina_don() sonrası
         # eski frame referansı detached olabilir.
         try:
@@ -1408,33 +1540,35 @@ class LucaOtomasyonCore:
         sirket_id = None  # outer scope — _mizan_ac() nonlocal ile yazar
         def _mizan_ac() -> None:
             """Mizan sayfasını doğrudan URL ile aç — seçili müşterinin
-            context'ini (sid + DONEM_ID) URL'e ekleyerek.
+            context'ini (SIRKET_ID + DONEM_ID) TopFrameAction URL'inden al.
 
-            KRİTİK: raporMizanHazirla.do, hangi firma için rapor
-            hazırlanacağını 'sid' parametresinden alır. sid olmadan
-            açılırsa sunucu varsayılan firmaya (Şule Çataloğlu) düşer ve
-            yanlış müşterinin mizanı gelir.
+            NOT: SirketCombo + Tamam akışından sonra TopFrameAction URL'i
+            şu biçime döner:
+                TopFrameAction.do?...&SIRKET_ID=<sid>&DONEM_ID=<donem>&DONEM_TXT=...
+            Mizan URL'inde bu iki değeri de kullanırız. Eski yöntemdeki
+            DONEM_ID=36672795 değeri ŞULE ÇATAL'ın dönemiydi ve yanlış
+            rapora yol açıyordu.
             """
             nonlocal sirket_id
             from time import time as _zaman
             from urllib.parse import parse_qs, urlparse
 
-            # --- Seçili müşterinin ID'sini (sid) ve dönem ID'sini bul ---
+            # --- Seçili müşterinin ID'sini (SIRKET_ID) ve dönem ID'sini
+            # (DONEM_ID) güncellenmiş TopFrameAction URL'inden bul ---
             sirket_id = None
             donem_id = None
             for cv in self.dashboard.frames:
                 try:
-                    if "selectSirketAction" in cv.url:
-                        qs = parse_qs(urlparse(cv.url).query)
-                        sid_list = qs.get("sid")
-                        if sid_list:
-                            sirket_id = sid_list[0]
-                            log(f"  Seçili müşteri ID (sid): {sirket_id}")
                     if "TopFrameAction" in cv.url:
                         qs = parse_qs(urlparse(cv.url).query)
+                        sid_list = qs.get("SIRKET_ID") or qs.get("sid")
                         donem_list = qs.get("DONEM_ID") or qs.get("donem")
+                        if sid_list:
+                            sirket_id = sid_list[0]
+                            log(f"  Seçili müşteri ID (SIRKET_ID): {sirket_id}")
                         if donem_list:
                             donem_id = donem_list[0]
+                            log(f"  Dönem ID (DONEM_ID): {donem_id}")
                 except Exception:
                     continue
 
