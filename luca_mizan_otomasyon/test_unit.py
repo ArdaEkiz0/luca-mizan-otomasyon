@@ -284,27 +284,18 @@ class TestMusteriSec(unittest.TestCase):
         return tablo, eslesme, satir
 
     def test_musteri_sec_basarili_sec_gonder_akisi(self):
-        """sec() + gonder('guncelle') akışının doğru çağrılmasını test et."""
+        """dblclick ile müşteri seçimi başarılı olmalı."""
         log_messages = []
         def log_fn(msg):
             log_messages.append(msg)
 
-        _, _, satir = self._setup_tablo(3, 1, "sec(this, '111', 'TEST FİRMA', '222', '333', '');")
-
-        def mock_evaluate(code, *args):
-            if "sec(" in code:
-                return {"ok": True, "onclick": "sec(this, '111', 'TEST FİRMA', '222', '333', '');"}
-            if "gonder" in code:
-                return {"ok": True}
-            return {"ok": True}
-        self.mock_frame.evaluate = mock_evaluate
+        self._setup_tablo(3, 1, "sec(this, '111', 'TEST FİRMA', '222', '333', '');")
 
         self.core.musteri_sec("TEST FİRMA", log=log_fn)
 
-        self.assertTrue(any("sec()" in m for m in log_messages),
-                        f"sec() log'u bulunamadı. Loglar: {log_messages}")
-        self.assertTrue(any("gonder" in m for m in log_messages),
-                        f"gonder() log'u bulunamadı. Loglar: {log_messages}")
+        # dblclick birincil yöntem, başarılı olmalı
+        self.assertTrue(any("dblclick" in m and "başarılı" in m for m in log_messages),
+                        f"dblclick log'u bulunamadı. Loglar: {log_messages}")
 
     def test_musteri_sec_tablo_bos_hata(self):
         """Tablo boşsa hata fırlatmalı."""
@@ -417,22 +408,18 @@ class TestMusteriSec(unittest.TestCase):
 
         self._setup_tablo(3, 1, "sec(this, '111', 'TEST', '222', '333', '');")
 
-        # sec()+gonder() çağrıldığında URL değişsin diye evaluate side_effect
-        baslangic_url = self.mock_page.url
-        def mock_evaluate(code, *args):
-            if "sec(" in code:
-                return {"ok": True}
-            if "gonder" in code:
-                # gonder() çağrıldığında URL'i değiştir
+        # dblclick sonrası wait_for_timeout sırasında URL değişsin
+        call_count = [0]
+        def mock_wait(timeout):
+            call_count[0] += 1
+            if call_count[0] == 1:
                 self.mock_page.url = "https://test.luca.com.tr/Luca/musteriBilgileri.do?something"
-                return {"ok": True}
-            return {"ok": True}
-        self.mock_frame.evaluate = mock_evaluate
+        self.mock_page.wait_for_timeout = mock_wait
 
         self.core.musteri_sec("TEST", log=log_fn)
-        # URL değiştiği için "Sayfa yönlendirildi" log'u olmalı
-        self.assertTrue(any("Sayfa yönlendirildi" in m for m in log_messages),
-                        f"Sayfa yönlendirildi log'u bulunamadı. Loglar: {log_messages}")
+        self.assertTrue(any("Sayfa yönlendirildi" in m or "musteriBilgileri" in m
+                            for m in log_messages),
+                        f"URL yönlendirme log'u bulunamadı. Loglar: {log_messages}")
 
     def test_musteri_sec_uzun_ad_secimi(self):
         """Uzun müşteri adlarıyla çalışma testi."""
@@ -443,16 +430,8 @@ class TestMusteriSec(unittest.TestCase):
         uzun_ad = "ÇOK UZUN MÜŞTERİ ADI A.Ş. SANAYİ VE TİCARET LİMİTED ŞİRKETİ"
         self._setup_tablo(1, 1, f"sec(this, '999', '{uzun_ad}', '111', '222', '');")
 
-        def mock_evaluate(code, *args):
-            if "sec(" in code:
-                return {"ok": True}
-            if "gonder" in code:
-                return {"ok": True}
-            return {"ok": True}
-        self.mock_frame.evaluate = mock_evaluate
-
         self.core.musteri_sec(uzun_ad, log=log_fn)
-        self.assertTrue(any("sec()" in m for m in log_messages))
+        self.assertTrue(any("dblclick" in m for m in log_messages))
 
 
 # ============================================================
@@ -925,19 +904,11 @@ class TestEdgeCases(unittest.TestCase):
         eslesme_mock.first.evaluate.return_value = 0
         core.liste_frame.locator.return_value = eslesme_mock
 
-        def mock_evaluate(code, *args):
-            if "sec(" in code:
-                return {"ok": True, "onclick": "sec(this, '111', 'TEST', '222', '333', '');"}
-            if "gonder" in code:
-                return {"ok": True}
-            return {"ok": True}
-        core.liste_frame.evaluate = mock_evaluate
-
         log_messages = []
         core.musteri_sec("TEST", log=lambda m: log_messages.append(m))
 
-        # sec() çağrıldı mı?
-        self.assertTrue(any("sec()" in m for m in log_messages))
+        # dblclick birincil yöntem, başarılı olmalı
+        self.assertTrue(any("dblclick" in m for m in log_messages))
 
 
 # ============================================================

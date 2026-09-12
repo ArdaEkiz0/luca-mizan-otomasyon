@@ -1026,80 +1026,118 @@ class LucaOtomasyonCore:
         onceki_sayfa_sayisi = len(self._context.pages)
         onceki_url = self.dashboard.url
 
-        # === DOĞRU MEKANİZMA: sec() + gonder('guncelle') ===
-        # Tablo satırının onclick'i: sec(this, 'ID', 'AD', 'VERGI', ...)
-        # ondblclick'i: gonder('guncelle') — bu sunucu tarafında session'a
-        # müşteri kaydeder. Sadece sec() çağırmak yetmez.
+        # === DOĞRU MEKANİZMA ===
+        # gonder('guncelle') frame.evaluate() ile çalışmaz çünkü
+        # fonksiyon parent page context'inde document.forms'a ihtiyaç duyar.
+        # ÇÖZÜM: Playwright'un dblclick() kullan — bu gerçek DOM event'ini
+        # doğru context'te tetikler, sec() ve gonder() doğal çalışır.
         tiklandi = False
 
-        # YÖNTEM A: onclick attribute'undan sec() parametrelerini çıkar ve çağır
+        # YÖNTEM A (birincil): dblclick — en güvenilir yöntem
+        # Kullanıcı ne yapıyorsa aynısını yapıyoruz: çift tıklama
         try:
-            onclick_str = satir.get_attribute("onclick") or ""
-            if "sec(" in onclick_str:
-                log(f"  Row onclick: '{onclick_str[:80]}'")
-                # sec() parametrelerini satırdan çıkar ve çağır
-                sec_result = self.liste_frame.evaluate(
-                    """(satirIndex) => {
-                        const satir = document.querySelectorAll('table.data-table tr.satir')[satirIndex];
-                        if (!satir) return {ok: false, msg: 'satir not found'};
-                        const onclickAttr = satir.getAttribute('onclick') || '';
-                        if (!onclickAttr.includes('sec(')) return {ok: false, msg: 'no sec() in onclick'};
-                        // sec() çağır
-                        try { satir.click(); } catch(e) {}
-                        return {ok: true, onclick: onclickAttr.slice(0, 120)};
-                    }""",
-                    eslesme.first.evaluate(
-                        "el => Array.from(el.parentNode.children).indexOf(el)"
-                    ),
-                )
-                log(f"  sec() çağrıldı: {sec_result}")
-                tiklandi = True
-
-                # Şimdi gonder('guncelle') çağır — bu müşteri sayfasını açar
-                # ve sunucu session'ına kaydeder
-                self.dashboard.wait_for_timeout(1000)
-                gonder_result = self.liste_frame.evaluate(
-                    """() => {
-                        if (typeof gonder === 'function') {
-                            try {
-                                gonder('guncelle');
-                                return {ok: true};
-                            } catch(e) {
-                                return {ok: false, msg: e.toString()};
-                            }
-                        }
-                        return {ok: false, msg: 'gonder not found'};
-                    }"""
-                )
-                log(f"  gonder('guncelle') çağrıldı: {gonder_result}")
-            else:
-                log(f"  Row onclick yok veya sec() içermiyor: '{onclick_str[:80]}'")
+            log(f"  '{kisa_ad}' dblclick deneniyor...")
+            satir.dblclick(timeout=10000)
+            tiklandi = True
+            log(f"  '{kisa_ad}' dblclick başarılı.")
         except Exception as e:
-            log(f"  sec()/gonder() hatası: {str(e)[:150]}")
+            log(f"  dblclick başarısız: {str(e)[:120]}")
 
-        # YÖNTEM B: gonder() bulunamazsa, double-click ile tetikle
+        # YÖNTEM B: dblclick başarısızsa, sec() + gonder() programatik
+        # gonder() top-level page context'inde çağrılmalı (frame değil)
         if not tiklandi:
             try:
-                log("  Double-click deneniyor...")
-                satir.dblclick(timeout=5000)
-                tiklandi = True
-            except Exception as e:
-                log(f"  Double-click başarısız: {str(e)[:120]}")
+                log("  dblclick başarısız, sec()+gonder() deneniyor...")
+                onclick_str = satir.get_attribute("onclick") or ""
+                if "sec(" in onclick_str:
+                    log(f"  Row onclick: '{onclick_str[:80]}'")
 
-        # YÖNTEM C: Son çare — satır click (sadece sec() çağırır, yetmeyebilir)
+                    # sec() parametrelerini satırdan çıkar
+                    # onclick formatı: sec(this, 'ID', 'AD', 'VERGI', 'DAIRE', '')
+                    import re
+                    sec_match = re.search(
+                        r"sec\(this,\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'",
+                        onclick_str
+                    )
+                    if sec_match:
+                        sirket_id = sec_match.group(1)
+                        kisa_ad_found = sec_match.group(2)
+                        vergi_no = sec_match.group(3)
+
+                        # sec() ve gonder() tek evaluate'da çağrılmalı
+                        # ki sec'in side-effect'leri gonder'a görünsün
+                        sec_gonder_sonuc = self.dashboard.evaluate(
+                            """([sirketId, kisaAd, vergiNo]) => {
+                                // Frame içindeki sec() fonksiyonunu bul
+                                let secFunc = null;
+                                let gonderFunc = null;
+                                let targetFrame = null;
+
+                                // Tüm frame'lerde sec ve gonder ara
+                                for (let i = 0; i < window.frames.length; i++) {
+                                    try {
+                                        let f = window.frames[i];
+                                        if (typeof f.sec === 'function') {
+                                            secFunc = f.sec;
+                                            gonderFunc = f.gonder;
+                                            targetFrame = f;
+                                            break;
+                                        }
+                                    } catch(e) {}
+                                }
+
+                                if (!secFunc) {
+                                    return {ok: false, msg: 'sec not found in any frame'};
+                                }
+
+                                // sec() çağır — secili müşteriyi ayarla
+                                try {
+                                    secFunc(null, sirketId, kisaAd, vergiNo, '', '');
+                                } catch(e) {
+                                    return {ok: false, msg: 'sec() error: ' + e.toString()};
+                                }
+
+                                // gonder() çağır — form submit / navigasyon
+                                if (gonderFunc) {
+                                    try {
+                                        gonderFunc('guncelle');
+                                        return {ok: true, method: 'sec+gonder via frame'};
+                                    } catch(e) {
+                                        return {ok: false, msg: 'gonder() error: ' + e.toString()};
+                                    }
+                                }
+
+                                return {ok: false, msg: 'gonder not found'};
+                            }""",
+                            [sirket_id, kisa_ad_found, vergi_no]
+                        )
+                        log(f"  sec()+gonder() sonucu: {sec_gonder_sonuc}")
+                        tiklandi = True
+                    else:
+                        log(f"  sec() parametreleri ayrıştırılamadı: '{onclick_str[:80]}'")
+            except Exception as e:
+                log(f"  sec()+gonder() hatası: {str(e)[:150]}")
+
+        # YÖNTEM C: Son çare — onclick'i olduğu gibi evaluate et
         if not tiklandi:
             try:
-                log("  Son çare: satır.click() deneniyor...")
-                satir.click(timeout=5000)
-                tiklandi = True
+                log("  Son çare: onclick attr doğrudan evaluate...")
+                onclick_str2 = satir.get_attribute("onclick") or ""
+                if onclick_str2:
+                    sonuc = self.liste_frame.evaluate(
+                        f"() => {{ try {{ {onclick_str2}; return {{ok: true}}; }} catch(e) {{ return {{ok: false, msg: e.toString()}}; }} }}"
+                    )
+                    log(f"  Doğrudan evaluate sonucu: {sonuc}")
+                    tiklandi = True
             except Exception as e:
-                log(f"  Satır click başarısız: {str(e)[:120]}")
+                log(f"  Doğrudan evaluate hatası: {str(e)[:120]}")
 
         if not tiklandi:
             raise RuntimeError(f"'{kisa_ad}' için hiç bir tıklama yöntemi çalışmadı!")
 
         # --- Sayfa değişikliğini bekle ---
-        for _ in range(30):  # ~15 saniye
+        frame_yonlendi = False
+        for _ in range(40):  # ~20 saniye
             if len(self._context.pages) > onceki_sayfa_sayisi:
                 log("  Yeni sekme açıldı, o sekmeye geçiliyor...")
                 self.dashboard = self._context.pages[-1]
@@ -1111,6 +1149,16 @@ class LucaOtomasyonCore:
             if self.dashboard.url != onceki_url:
                 log(f"  Sayfa yönlendirildi: {self.dashboard.url[:80]}")
                 break
+            # Frame URL'lerinde değişiklik var mı kontrol et (sadece 1 kez log)
+            if not frame_yonlendi:
+                try:
+                    for cv in self.dashboard.frames:
+                        if cv.url != onceki_url and "luca.do" not in cv.url:
+                            log(f"  Frame yönlendirildi: {cv.url[:80]}")
+                            frame_yonlendi = True
+                            break
+                except Exception:
+                    pass
             self.dashboard.wait_for_timeout(500)
 
         self.dashboard.wait_for_timeout(2000)
@@ -1119,9 +1167,9 @@ class LucaOtomasyonCore:
         musteri_bulundu = False
         try:
             for cv in self.dashboard.frames:
-                if "musteriBilgileri" in cv.url:
+                if "musteriBilgileri" in cv.url or "sirketDetay" in cv.url:
                     musteri_bulundu = True
-                    log(f"  musteriBilgileri frame bulundu: {cv.url[:80]}")
+                    log(f"  Müşteri sayfası frame bulundu: {cv.url[:80]}")
                     break
         except Exception:
             pass
@@ -1138,20 +1186,13 @@ class LucaOtomasyonCore:
         if not musteri_bulundu:
             log(f"  UYARI: '{kisa_ad}' için müşteri sayfası doğrulanamadı! "
                 f"URL: {self.dashboard.url[:80]}")
-            # gonder() bulunamadıysa veya çalışmadıysa, alternatif:
-            # JS ile forms submit dene
+            # Son çare: dblclick event dispatch
             try:
+                log("  Alternatif: satır dblclick event dispatch...")
                 alt_result = self.liste_frame.evaluate(
                     """(satirIndex) => {
                         const satir = document.querySelectorAll('table.data-table tr.satir')[satirIndex];
                         if (!satir) return {ok: false, msg: 'satir not found'};
-                        // Checkbox'ı işaretle (bazı Luxembourg'lar bunu gerektirir)
-                        const cb = satir.querySelector('input[type="checkbox"]');
-                        if (cb && !cb.checked) {
-                            cb.checked = true;
-                            cb.dispatchEvent(new Event('change', {bubbles: true}));
-                        }
-                        // Double-click tetikle (ondblclick="gonder('guncelle')")
                         const evt = new MouseEvent('dblclick', {
                             bubbles: true, cancelable: true, view: window
                         });
@@ -1164,9 +1205,8 @@ class LucaOtomasyonCore:
                 )
                 log(f"  Alternatif dblclick event: {alt_result}")
                 self.dashboard.wait_for_timeout(3000)
-                # Tekrar kontrol
                 for cv in self.dashboard.frames:
-                    if "musteriBilgileri" in cv.url:
+                    if "musteriBilgileri" in cv.url or "sirketDetay" in cv.url:
                         musteri_bulundu = True
                         log(f"  Alternatif yöntemle müşteri bulundu: {cv.url[:80]}")
                         break
