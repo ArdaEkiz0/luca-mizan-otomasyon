@@ -1406,14 +1406,47 @@ class LucaOtomasyonCore:
         # paylaşılan, ayrı bir açılır-menü içerik çerçevesine yerleştiriyor.
         # Bu yüzden her adımda ilgili metni içeren çerçeveyi yeniden arıyoruz.
         def _mizan_ac() -> None:
-            """Mizan sayfasını doğrudan URL ile aç — menü tıklaması
-            apymenu.js yüzünden her zaman başarısız, zaman kaybı."""
+            """Mizan sayfasını doğrudan URL ile aç — seçili müşterinin
+            context'ini (sid + DONEM_ID) URL'e ekleyerek.
+
+            KRİTİK: raporMizanHazirla.do, hangi firma için rapor
+            hazırlanacağını 'sid' parametresinden alır. sid olmadan
+            açılırsa sunucu varsayılan firmaya (Şule Çataloğlu) düşer ve
+            yanlış müşterinin mizanı gelir.
+            """
             from time import time as _zaman
+            from urllib.parse import parse_qs, urlparse
+
+            # --- Seçili müşterinin ID'sini (sid) ve dönem ID'sini bul ---
+            sirket_id = None
+            donem_id = None
+            for cv in self.dashboard.frames:
+                try:
+                    if "selectSirketAction" in cv.url:
+                        qs = parse_qs(urlparse(cv.url).query)
+                        sid_list = qs.get("sid")
+                        if sid_list:
+                            sirket_id = sid_list[0]
+                            log(f"  Seçili müşteri ID (sid): {sirket_id}")
+                    if "TopFrameAction" in cv.url:
+                        qs = parse_qs(urlparse(cv.url).query)
+                        donem_list = qs.get("DONEM_ID") or qs.get("donem")
+                        if donem_list:
+                            donem_id = donem_list[0]
+                except Exception:
+                    continue
+
             log("  Doğrudan URL ile Mizan açılıyor...")
             url = (
                 "https://auygs.luca.com.tr/Luca/raporMizanHazirla.do"
                 f"?time={int(_zaman() * 1000)}"
             )
+            if sirket_id:
+                url += f"&sid={sirket_id}"
+            if donem_id:
+                url += f"&DONEM_ID={donem_id}"
+            log(f"  Mizan URL: {url[:100]}")
+
             for cv in self.dashboard.frames:
                 if ("musteriBilgileri" in cv.url or "rapor" in cv.url.lower()
                         or "selectSirket" in cv.url or "editSirket" in cv.url
@@ -1439,6 +1472,62 @@ class LucaOtomasyonCore:
         _mizan_ac()
 
         mizan_frame = self._frame_bul(self.dashboard, "#hesap_plani_dovizi_goster")
+
+        # --- Debug: mizan form alanlarını dök (müşteri context'i nerede?) ---
+        try:
+            form_veri = mizan_frame.evaluate(
+                """() => {
+                    const sonuc = {formlar: []};
+                    for (let i = 0; i < document.forms.length; i++) {
+                        const f = document.forms[i];
+                        const alanlar = {};
+                        for (let j = 0; j < f.elements.length; j++) {
+                            const el = f.elements[j];
+                            if (el.name) alanlar[el.name] = (el.value || '') + '';
+                        }
+                        sonuc.formlar.push({name: f.name, action: f.action, alanlar: alanlar});
+                    }
+                    return sonuc;
+                }"""
+            )
+            for fd in form_veri.get('formlar', [])[:2]:
+                log(f"  Mizan form: name={fd.get('name','?')}, action={fd.get('action','?')[:60]}")
+                if fd.get('alanlar'):
+                    for k, v in list(fd['alanlar'].items())[:15]:
+                        log(f"      {k} = {v[:40]}")
+        except Exception as e:
+            log(f"  Mizan form analizi hatası: {str(e)[:120]}")
+
+        # --- Müşteri context alanlarını ayarla (sid URL'e gitmezse güvence) ---
+        if sirket_id:
+            for alan_ad in ("sirket_id", "sid", "firma_id", "sirketNo"):
+                try:
+                    ayar_ok = mizan_frame.evaluate(
+                        """(name, val) => {
+                            const el = document.querySelector('[name="' + name + '"]');
+                            if (!el) return false;
+                            const tag = el.tagName.toLowerCase();
+                            if (tag === 'select') {
+                                for (const opt of el.options) {
+                                    if (opt.value === val || opt.value === '0' + val) {
+                                        el.value = opt.value;
+                                        el.dispatchEvent(new Event('change', {bubbles: true}));
+                                        return true;
+                                    }
+                                }
+                                return false;
+                            }
+                            el.value = val;
+                            el.dispatchEvent(new Event('input', {bubbles: true}));
+                            el.dispatchEvent(new Event('change', {bubbles: true}));
+                            return true;
+                        }""",
+                        [alan_ad, sirket_id]
+                    )
+                    if ayar_ok:
+                        log(f"  {alan_ad} alanı {sirket_id} olarak ayarlandı.")
+                except Exception:
+                    pass
 
         log("Mizan ayarları uygulanıyor (döviz kolonu gizle, sıfır bakiye gizle)...")
         mizan_frame.locator("#hesap_plani_dovizi_goster").select_option("0")
