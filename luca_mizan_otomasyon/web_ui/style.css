@@ -111,6 +111,18 @@ body {
 /* ---------- Üst çubuk ---------- */
 .ust-bar { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; }
 .logo { display: flex; align-items: center; gap: 14px; }
+.logo-gorsel {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  box-shadow: 0 4px 18px rgba(124, 58, 237, 0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+  transition: transform 0.25s, box-shadow 0.25s;
+  animation: logoNefes 4.5s ease-in-out infinite;
+}
+.logo:hover .logo-gorsel { transform: scale(1.08) rotate(-6deg); box-shadow: 0 6px 24px rgba(6, 182, 212, 0.5); }
+@keyframes logoNefes {
+  0%, 100% { box-shadow: 0 4px 16px rgba(124,58,237,0.3); }
+  50%      { box-shadow: 0 6px 22px rgba(6,182,212,0.45); }
+}
 .logo-yazi { display: flex; flex-direction: column; line-height: 1.15; }
 .baslik { font-size: 21px; font-weight: 800; letter-spacing: 0.2px; }
 .baslik b { background: linear-gradient(90deg, var(--mor), var(--turkuaz)); -webkit-background-clip: text; background-clip: text; color: transparent; }

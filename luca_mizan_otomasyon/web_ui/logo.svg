@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="ana" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="0.5" stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="parlak" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="halka" cx="0.5" cy="0.4" r="0.75">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.02"/>
+    </radialGradient>
+    <filter id="goVuru" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2.4" result="b"/>
+      <feComposite in="SourceGraphic" in2="b" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Dış halka -->
+  <circle cx="64" cy="64" r="60" fill="#0f1023"/>
+  <circle cx="64" cy="64" r="57" fill="url(#halka)" stroke="#ffffff" stroke-opacity="0.14" stroke-width="2.5"/>
+
+  <!-- Gradyan dolgu (M + terazi zemini) -->
+  <circle cx="64" cy="64" r="52" fill="url(#ana)"/>
+  <ellipse cx="64" cy="48" rx="46" ry="26" fill="url(#parlak)"/>
+
+  <!-- Terazi kolu (denge) -->
+  <line x1="26" y1="58" x2="102" y2="58" stroke="#ffffff" stroke-opacity="0.85" stroke-width="5" stroke-linecap="round"/>
+  <line x1="64" y1="58" x2="64" y2="70" stroke="#ffffff" stroke-opacity="0.85" stroke-width="5" stroke-linecap="round"/>
+  <line x1="34" y1="70" x2="34" y2="86" stroke="#ffffff" stroke-opacity="0.85" stroke-width="5" stroke-linecap="round"/>
+  <line x1="94" y1="70" x2="94" y2="86" stroke="#ffffff" stroke-opacity="0.85" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Sol kefe -->
+  <path d="M24 86 Q20 100 24 112 L30 112 Q34 100 38 86" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M24 108 L38 108 M24 112 L38 112" stroke="#ffffff" stroke-opacity="0.9" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Sağ kefe -->
+  <path d="M90 86 Q94 100 90 112 L98 112 Q100 100 104 86" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M90 108 L104 108 M90 112 L104 112" stroke="#ffffff" stroke-opacity="0.9" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Kefelerdeki denge çizgileri (bilanço) -->
+  <path d="M28 100 L28 106 M96 100 L96 106" stroke="#ffffff" stroke-opacity="0.6" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Parlama -->
+  <circle cx="42" cy="40" r="7" fill="#ffffff" opacity="0.75" filter="url(#goVuru)"/>
+  <circle cx="90" cy="104" r="5" fill="#ffffff" opacity="0.55"/>
+</svg>

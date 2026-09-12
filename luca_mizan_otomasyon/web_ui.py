@@ -237,6 +237,8 @@ class ApiHandler(BaseHTTPRequestHandler):
             dosya = WEB_DIR / "app.js"
         elif yol == "/favicon.svg":
             dosya = WEB_DIR / "favicon.svg"
+        elif yol == "/logo.svg":
+            dosya = WEB_DIR / "logo.svg"
         else:
             self._json({"hata": "Bulunamadi"}, 404)
             return

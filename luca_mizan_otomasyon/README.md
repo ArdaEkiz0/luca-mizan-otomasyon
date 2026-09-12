@@ -108,3 +108,7 @@ kullanmaya benzer bir örüntü. Uygulama, üye no/kullanıcı adı/parolanızı
   oluşturulur.
 - İki adımlı doğrulama (varsa) veya beklenmeyen bir uyarı penceresi çıkarsa,
   tarayıcı görünür olduğu için elle müdahale edebilirsiniz.
+
+---
+
+**Developer: Arda M. Ekiz** — Luca Mizan Raporu Otomasyonu

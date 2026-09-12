@@ -1,10 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="ana" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="0.5" stop-color="#4f46e5"/>
       <stop offset="1" stop-color="#06b6d4"/>
     </linearGradient>
   </defs>
-  <rect width="32" height="32" rx="8" fill="url(#g)"/>
-  <path d="M8 8 L14 14 L8 20 L5 16 M20 8 L26 14 L20 20 M8 26 L14 26 M20 26 L26 26" stroke="#fff" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <rect x="0" y="0" width="32" height="32" rx="8" fill="#0f1023"/>
+  <rect x="3" y="3" width="26" height="26" rx="6" fill="url(#ana)"/>
+  <line x1="7" y1="13" x2="25" y2="13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+  <line x1="16" y1="13" x2="16" y2="17" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+  <line x1="10" y1="17" x2="10" y2="23" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+  <line x1="22" y1="17" x2="22" y2="23" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M8 21 Q11 25 9 27 L14 27 Q16 25 17 21" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+  <path d="M18 21 Q21 25 19 27 L24 27 Q25 25 26 21" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
 </svg>

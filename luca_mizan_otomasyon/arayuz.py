@@ -17,7 +17,7 @@ import traceback
 
 import web_ui
 
-PENCERE_BASLIK = "Luca Mizan Otomasyonu"
+PENCERE_BASLIK = "Luca Mizan Otomasyonu — Developer: Arda M. Ekiz"
 PENCERE_GENISLIK = 1180
 PENCERE_YUKSEKLIK = 800
 
