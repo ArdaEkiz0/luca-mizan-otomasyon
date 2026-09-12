@@ -912,22 +912,53 @@ class LucaOtomasyonCore:
         # yöntem (aynı "Ara" düğmesinde işe yarayan desen).
         def _musteri_listesini_ac() -> None:
             """Müşteri Listesi'ni doğrudan URL ile aç — menü tıklaması
-            apymenu.js yüzünden her zaman başarısız, zaman kaybı."""
+            apymenu.js yüzünden her zaman başarısız, zaman kaybı.
+
+            ÖNEMLİ: Liste, 'musteriBilgileri' FRAME'İ içinde açılmalıdır.
+            self.dashboard'u listSirketAction'a yönlendirmek frameset'i
+            bozar ve TopFrameAction/SirketCombo frame'i kaybolur (rapor
+            akışı çöker). Bu yüzden frame'i sabırla bekleriz; dashboard'u
+            asla yönlendirmeyiz.
+            """
             from time import time as _zaman
             log("  Doğrudan URL ile Müşteri Listesi açılıyor...")
             url = (
                 "https://auygs.luca.com.tr/Luca/listSirketAction.do"
                 f"?time={int(_zaman() * 1000)}"
             )
-            for cv in self.dashboard.frames:
-                if "musteriBilgileri" in cv.url:
-                    cv.goto(url, wait_until="domcontentloaded", timeout=30000)
-                    cv.wait_for_timeout(1000)
-                    log(f"  Müşteri Listesi açıldı: {cv.url}")
-                    return
-            self.dashboard.goto(url, wait_until="domcontentloaded", timeout=30000)
-            self.dashboard.wait_for_timeout(1000)
-            log(f"  Müşteri Listesi açıldı: {self.dashboard.url}")
+            luca_url = (
+                "https://auygs.luca.com.tr/Luca/luca.do"
+                f"?time={int(_zaman() * 1000)}"
+            )
+
+            musteri_frame = None
+            for _ in range(25):  # ~25 saniyeye kadar frame'i bekle
+                for cv in self.dashboard.frames:
+                    try:
+                        if "musteriBilgileri" in cv.url:
+                            musteri_frame = cv
+                            break
+                    except Exception:
+                        continue
+                if musteri_frame is not None:
+                    break
+                # Frameset henüz yüklenmemiş olabilir — dashboard luca.do
+                # değilse ona dön (frameset'i geri getir), sonra tekrar bekle.
+                try:
+                    if "luca.do" not in self.dashboard.url:
+                        self.dashboard.goto(luca_url, wait_until="domcontentloaded", timeout=30000)
+                except Exception:
+                    pass
+                self.dashboard.wait_for_timeout(1000)
+
+            if musteri_frame is None:
+                raise RuntimeError(
+                    "'musteriBilgileri' frame'i bulunamadi — sayfa yuklenemedi."
+                )
+
+            musteri_frame.goto(url, wait_until="domcontentloaded", timeout=30000)
+            musteri_frame.wait_for_timeout(1000)
+            log(f"  Müşteri Listesi açıldı: {musteri_frame.url}")
 
         _musteri_listesini_ac()
 
@@ -1077,7 +1108,11 @@ class LucaOtomasyonCore:
         # Dönem combo'su — _son_yil içeren (ör. 2026) dönemi seç
         try:
             donem = top_frame.locator("#DonemCombo")
-            donem.wait_for_selector("option", timeout=10000)
+            # Not: wait_for_selector Frame'de vardır, Locator'da wait_for kullanılır.
+            try:
+                donem.wait_for(state="visible", timeout=10000)
+            except Exception:
+                pass
             hedef = str(self._son_yil)
             secildi = False
             d_adet = donem.locator("option").count()
@@ -1532,32 +1567,40 @@ class LucaOtomasyonCore:
             "https://auygs.luca.com.tr/Luca/listSirketAction.do"
             f"?time={int(_zaman() * 1000)}"
         )
+        luca_url = (
+            "https://auygs.luca.com.tr/Luca/luca.do"
+            f"?time={int(_zaman() * 1000)}"
+        )
 
-        # Önce mevcut sayfada frames.contains kontrolü yap
-        navigasyon_basrildi = False
-        try:
+        # ÖNEMLİ: Müşteri listesini her zaman 'musteriBilgileri' FRAME'İ
+        # içinde aç. self.dashboard'u listSirketAction'a yönlendirmek
+        # frameset'i bozar ve TopFrameAction/SirketCombo kaybolur.
+        hedef_frame = None
+        for _ in range(20):  # ~20 saniyeye kadar frame'i bekle
             for cv in self.dashboard.frames:
                 try:
                     if ("musteriBilgileri" in cv.url or "rapor" in cv.url.lower()
                             or "selectSirket" in cv.url or "editSirket" in cv.url
                             or "listSirket" in cv.url):
-                        cv.goto(musteri_listesi_url, wait_until="domcontentloaded", timeout=30000)
-                        cv.wait_for_timeout(1000)
-                        navigasyon_basrildi = True
-                        log("  Doğrudan URL ile müşteri listesine dönüldü (frame).")
+                        hedef_frame = cv
                         break
                 except Exception:
                     continue
-        except Exception:
-            pass
-
-        if not navigasyon_basrildi:
+            if hedef_frame is not None:
+                break
             try:
-                self.dashboard.goto(musteri_listesi_url, wait_until="domcontentloaded", timeout=30000)
-                self.dashboard.wait_for_timeout(1000)
-                log("  Doğrudan URL ile müşteri listesine dönüldü (sayfa).")
-            except Exception as e:
-                raise RuntimeError(f"Müşteri listesine dönülemedi: {e}")
+                if "luca.do" not in self.dashboard.url:
+                    self.dashboard.goto(luca_url, wait_until="domcontentloaded", timeout=30000)
+            except Exception:
+                pass
+            self.dashboard.wait_for_timeout(1000)
+
+        if hedef_frame is None:
+            raise RuntimeError("Müşteri listesi frame'i bulunamadı — sayfa yüklenemedi.")
+
+        hedef_frame.goto(musteri_listesi_url, wait_until="domcontentloaded", timeout=30000)
+        hedef_frame.wait_for_timeout(1000)
+        log("  Doğrudan URL ile müşteri listesine dönüldü (frame).")
 
         # Frame'i bul ve tabloyu bekle
         self.liste_frame = self._frame_bul(self.dashboard, "#YIL")

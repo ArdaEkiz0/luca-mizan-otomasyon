@@ -452,7 +452,7 @@ class TestMusteriKartinaDon(unittest.TestCase):
             headless=True,
         )
         self.mock_page = MockPage()
-        mock_frame = MockFrame()
+        mock_frame = MockFrame(url="https://auygs.luca.com.tr/Luca/musteriBilgileri.do?time=1")
         self.mock_page.frames = [mock_frame]
         self.core.dashboard = self.mock_page
         self.core._context = MockContext()
@@ -501,8 +501,12 @@ class TestMusteriKartinaDon(unittest.TestCase):
         self.core._filtreleri_uygula = MagicMock()
         self.core.musteri_kartina_don(log=log_fn)
 
-        # URL'nin listSirketAction.do içermesi gerekir
-        self.assertIn("listSirketAction.do", self.mock_page.url)
+        # Frame'e listSirketAction.do URL'si ile gidilmiş olmalı
+        frame = self.mock_page.frames[0]
+        gidilen_url = frame.goto.call_args[0][0] if frame.goto.call_args else ""
+        self.assertIn("listSirketAction.do", gidilen_url)
+        # İşlem logu "dönüldü" mesajı içermeli
+        self.assertTrue(any("dönüldü" in m for m in log_messages))
 
     def test_musteri_kartina_don_filtre_sonrasi_frame(self):
         """Filtre uygulandıktan sonra frame'in bulunduğunu doğrula."""
