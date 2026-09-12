@@ -285,17 +285,19 @@ class LucaGUI(ctk.CTk):
         ctk.CTkLabel(tarih_satiri, text="Tarih Araligi (bos = tum yil):", text_color="#cccccc").pack(
             side="left", padx=(0, 8)
         )
-        ctk.CTkLabel(tarih_satiri, text="Baslangic (GG/AA/YYYY):", text_color="#999999").pack(side="left", padx=(0, 4))
+        ctk.CTkLabel(tarih_satiri, text="Baslangic (8 rakam):", text_color="#999999").pack(side="left", padx=(0, 4))
         self.baslangic_entry = ctk.CTkEntry(
-            tarih_satiri, width=120, placeholder_text="01/01/2026",
+            tarih_satiri, width=110, placeholder_text="01012026",
             fg_color="#2b2b2b", border_color="#555555",
         )
+        self.baslangic_entry.bind("<KeyRelease>", self._tarih_otomatik_format)
         self.baslangic_entry.pack(side="left", padx=(0, 8))
-        ctk.CTkLabel(tarih_satiri, text="Bitis (GG/AA/YYYY):", text_color="#999999").pack(side="left", padx=(0, 4))
+        ctk.CTkLabel(tarih_satiri, text="Bitis (8 rakam):", text_color="#999999").pack(side="left", padx=(0, 4))
         self.bitis_entry = ctk.CTkEntry(
-            tarih_satiri, width=120, placeholder_text="31/12/2026",
+            tarih_satiri, width=110, placeholder_text="31122026",
             fg_color="#2b2b2b", border_color="#555555",
         )
+        self.bitis_entry.bind("<KeyRelease>", self._tarih_otomatik_format)
         self.bitis_entry.pack(side="left")
 
         # Musteri tablosu
@@ -587,6 +589,45 @@ class LucaGUI(ctk.CTk):
         if not self.calisiyor:
             self.rapor_btn.configure(state="normal")
 
+    def _tarih_otomatik_format(self, _event=None) -> None:
+        """Kullanıcı sadece 8 rakam yazar; noktalar otomatik eklenir.
+
+        Örn: '01012026' yazarken ekranda '01.01.2026' görünür.
+        Son değer yine düz rakam olarak saklanır (GGAAYYYY).
+        """
+        for entry in (self.baslangic_entry, self.bitis_entry):
+            try:
+                rakamlar = "".join(ch for ch in entry.get() if ch.isdigit())[:8]
+                if rakamlar:
+                    parcalar = []
+                    if len(rakamlar) >= 2:
+                        parcalar.append(rakamlar[0:2])
+                    if len(rakamlar) >= 4:
+                        parcalar.append(rakamlar[2:4])
+                    if len(rakamlar) > 4:
+                        parcalar.append(rakamlar[4:8])
+                    yeni = ".".join(parcalar)
+                else:
+                    yeni = ""
+                if entry.get() != yeni:
+                    imlec = len(yeni)
+                    entry.delete(0, "end")
+                    entry.insert(0, yeni)
+                    try:
+                        entry.icursor(imlec)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+    @staticmethod
+    def _tarih_temizle(deger: str) -> str:
+        """Girdiden ayraçları kaldırıp düz 8 rakam (GGAAYYYY) döndürür.
+
+        '01.01.2026' -> '01012026'. Core tarafı bunu GG/AA/YYYY'e çevirir.
+        """
+        return "".join(ch for ch in deger if ch.isdigit())[:8]
+
     def _rapor_olustur(self) -> None:
         if self.calisiyor or self.core is None:
             return
@@ -599,8 +640,8 @@ class LucaGUI(ctk.CTk):
                 messagebox.showwarning("Müşteri Seçilmedi", "Lütfen listeden bir müşteri seçin.")
                 return
         kisa_ad = self.secili_kisa_ad
-        baslangic = self.baslangic_entry.get().strip() if hasattr(self, "baslangic_entry") else ""
-        bitis = self.bitis_entry.get().strip() if hasattr(self, "bitis_entry") else ""
+        baslangic = self._tarih_temizle(self.baslangic_entry.get()) if hasattr(self, "baslangic_entry") else ""
+        bitis = self._tarih_temizle(self.bitis_entry.get()) if hasattr(self, "bitis_entry") else ""
         self._mesgul_baslat(f"'{kisa_ad}' icin Mizan raporu olusturuluyor...")
 
         def is_parcasi():
@@ -644,8 +685,8 @@ class LucaGUI(ctk.CTk):
             return
 
         self._mesgul_baslat(f"{len(tum_musteriler)} musteri icin toplu rapor olusturuluyor...")
-        baslangic = self.baslangic_entry.get().strip() if hasattr(self, "baslangic_entry") else ""
-        bitis = self.bitis_entry.get().strip() if hasattr(self, "bitis_entry") else ""
+        baslangic = self._tarih_temizle(self.baslangic_entry.get()) if hasattr(self, "baslangic_entry") else ""
+        bitis = self._tarih_temizle(self.bitis_entry.get()) if hasattr(self, "bitis_entry") else ""
 
         def is_parcasi():
             try:
