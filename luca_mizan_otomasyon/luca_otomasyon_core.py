@@ -1076,9 +1076,11 @@ class LucaOtomasyonCore:
             return False
 
         secili = None
+        secili_deger = None
         for metin, deger, i in secenekler:
             if metin == kisa_ad:
                 secili = i
+                secili_deger = deger
                 break
         if secili is None:
             adaylar = []
@@ -1092,31 +1094,73 @@ class LucaOtomasyonCore:
             if adaylar:
                 adaylar.sort(key=lambda x: len(x[0]), reverse=True)
                 secili = adaylar[0][2]
+                secili_deger = adaylar[0][1]
         if secili is None:
             log(f"  UYARI: '{kisa_ad}' SirketCombo'da bulunamadı.")
             return False
 
         secilen_metin = secenekler[secili][0]
-        mevcut_index = combo.evaluate("el => el.selectedIndex")
-        if mevcut_index != secili:
-            combo.select_option(index=secili)
-            # Luca'nın onchange="loadDonem();showButton();" handler'ı bazen
-            # Playwright'ın select_option'ı ile tetiklenmez. Manuel olarak
-            # change event'i fırlatarak dönemlerin yüklenmesini garantile.
+
+        # --- Firma seçimi: value (firma ID) ile — index güvenilir değil ---
+        secim_ok = False
+        if secili_deger:
             try:
-                combo.evaluate(
-                    """() => {
+                combo.select_option(value=secili_deger)
+                # Luca'nın onchange="loadDonem();showButton();" handler'ı bazen
+                # Playwright'ın select_option'ı ile tetiklenmez. Manuel olarak
+                # change event'i fırlatarak dönemlerin yüklenmesini garantile.
+                try:
+                    combo.evaluate(
+                        """() => {
+                            const el = document.getElementById('SirketCombo');
+                            if (el) el.dispatchEvent(new Event('change', {bubbles: true}));
+                            return true;
+                        }"""
+                    )
+                except Exception:
+                    pass
+                top_frame.wait_for_timeout(2500)
+                # Seçimin gerçekten hedef firma olduğunu doğrula
+                secilen_gercek = combo.evaluate("el => el.value")
+                if secilen_gercek == secili_deger:
+                    secim_ok = True
+                else:
+                    log(f"  UYARI: value ile seçilemedi ({secilen_gercek}), JS ile deneniyor...")
+            except Exception as e:
+                log(f"  UYARI: value ile seçilemedi: {str(e)[:100]}")
+
+        if not secim_ok:
+            # Yedek: JS ile zorla seç (index karışıklığından bağımsız)
+            try:
+                js_sonuc = combo.evaluate(
+                    """(deger) => {
                         const el = document.getElementById('SirketCombo');
-                        if (el) el.dispatchEvent(new Event('change', {bubbles: true}));
-                        return true;
-                    }"""
+                        if (!el) return {ok: false, msg: 'yok'};
+                        for (let k = 0; k < el.options.length; k++) {
+                            if (el.options[k].value === deger) {
+                                el.selectedIndex = k;
+                                el.dispatchEvent(new Event('change', {bubbles: true}));
+                                return {ok: true, secili: el.value};
+                            }
+                        }
+                        return {ok: false, msg: 'deger bulunamadi'};
+                    }""",
+                    secili_deger,
                 )
-            except Exception:
-                pass
-            top_frame.wait_for_timeout(2500)  # loadDonem() AJAX'ı dönemleri doldursun
+                top_frame.wait_for_timeout(2500)
+                if js_sonuc.get("ok"):
+                    secim_ok = True
+                    log(f"  SirketCombo'dan '{secilen_metin}' (JS) seçildi.")
+                else:
+                    log(f"  SirketCombo'dan JS ile seçilemedi: {js_sonuc}")
+            except Exception as e:
+                log(f"  UYARI: JS seçim hatası: {str(e)[:100]}")
+
+        if secim_ok:
             log(f"  SirketCombo'dan '{secilen_metin}' seçildi.")
         else:
-            log(f"  '{secilen_metin}' zaten seçili.")
+            log(f"  HATA: '{secilen_metin}' SirketCombo'da seçilemedi.")
+            return False
 
         # Dönem combo'su — _son_yil içeren (ör. 2026) dönemi seç
         try:
@@ -1722,29 +1766,50 @@ class LucaOtomasyonCore:
                 url += f"&sid={sirket_id}"
             if donem_id:
                 url += f"&DONEM_ID={donem_id}"
-            log(f"  Mizan URL: {url[:100]}")
+            log(f"  Mizan URL: {url[:120]}")
 
-            for cv in self.dashboard.frames:
-                if ("musteriBilgileri" in cv.url or "rapor" in cv.url.lower()
-                        or "selectSirket" in cv.url or "editSirket" in cv.url
-                        or "listSirket" in cv.url):
-                    cv.goto(url, wait_until="domcontentloaded", timeout=30000)
-                    cv.wait_for_timeout(500)
-                    log(f"  Mizan açıldı: {cv.url}")
-                    return
-            # Son çare: main page'de rapor frame'i ara
+            # Mizan sayfasını aç — ve GERÇEKTEN açıldığını doğrula.
+            # Bazen sunucu yanlış SIRKET_ID/DONEM_ID ile isteği reddedip
+            # sayfayı eski konuma döndürür; o durumda 'açıldı' demeyiz.
+            hedef_frame = None
             for cv in self.dashboard.frames:
                 try:
-                    if cv.url and "luca.do" not in cv.url and "header" not in cv.url and "menu" not in cv.url:
-                        cv.goto(url, wait_until="domcontentloaded", timeout=30000)
-                        cv.wait_for_timeout(500)
-                        log(f"  Mizan açıldı (fallback): {cv.url}")
-                        return
+                    if ("musteriBilgileri" in cv.url or "rapor" in cv.url.lower()
+                            or "selectSirket" in cv.url or "editSirket" in cv.url
+                            or "listSirket" in cv.url):
+                        hedef_frame = cv
+                        break
                 except Exception:
                     continue
+
+            if hedef_frame is None:
+                for cv in self.dashboard.frames:
+                    try:
+                        if cv.url and "luca.do" not in cv.url and "header" not in cv.url and "menu" not in cv.url:
+                            hedef_frame = cv
+                            break
+                    except Exception:
+                        continue
+
+            if hedef_frame is not None:
+                hedef_frame.goto(url, wait_until="domcontentloaded", timeout=30000)
+                hedef_frame.wait_for_timeout(2000)
+                if "raporMizan" in hedef_frame.url:
+                    log(f"  Mizan açıldı: {hedef_frame.url[:120]}")
+                    return
+                log(f"  UYARI: Mizan açılamadı, sayfa: {hedef_frame.url[:100]}")
+                # Bir kez daha dene (sunucu gecikiyor olabilir)
+                hedef_frame.goto(url, wait_until="domcontentloaded", timeout=30000)
+                hedef_frame.wait_for_timeout(2000)
+                if "raporMizan" in hedef_frame.url:
+                    log(f"  Mizan açıldı (2. deneme): {hedef_frame.url[:120]}")
+                    return
+                log(f"  HATA: Mizan sayfası açılamadı — {hedef_frame.url[:100]}")
+
+            # Son çare: ana sayfada aç
             self.dashboard.goto(url, wait_until="domcontentloaded", timeout=30000)
-            self.dashboard.wait_for_timeout(500)
-            log(f"  Mizan açıldı (main page): {self.dashboard.url}")
+            self.dashboard.wait_for_timeout(2000)
+            log(f"  Mizan açıldı (main page): {self.dashboard.url[:120]}")
 
         _mizan_ac()
 

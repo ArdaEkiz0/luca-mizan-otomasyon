@@ -1311,7 +1311,11 @@ class TestSirketSecKombodan(unittest.TestCase):
         combo.count.return_value = 3
         combo.locator.return_value.count.return_value = 3
         combo.locator.return_value.nth.return_value = combo_option
-        combo.evaluate.return_value = 0  # selectedIndex
+        # select_option(value=...) sonrası doğrulama el.value döndürür
+        combo.evaluate.side_effect = lambda code, *a: (
+            {"ok": True, "secili": "112285648"} if "derecesi" not in code and "ok" in code
+            else ("112285648" if "el.value" in code or "selectedIndex" in code else 0)
+        )
 
         # DonemCombo option'ları
         donem_option = MagicMock()
