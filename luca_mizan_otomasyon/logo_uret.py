@@ -87,6 +87,8 @@ def _ciz_logo(tuval: int) -> Image.Image:
     return img
 
 
+
+
 def main() -> None:
     ana = _ciz_logo(BOYUT)
 
@@ -101,6 +103,8 @@ def main() -> None:
 
     print(f"Logo uretildi: {CIKTI_ICO}")
     print(f"              {CIKTI_PNG}")
+    print("Not: Pencere/görev çubuğu ikonu, arayuz.py içindeki "
+          "webview.start(icon=...) ile otomatik kullanılır.")
 
 
 if __name__ == "__main__":
