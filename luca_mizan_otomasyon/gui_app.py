@@ -410,6 +410,7 @@ class LucaGUI(ctk.CTk):
             try:
                 self.core.musteri_sec(kisa_ad, log=lambda m: self.olay_kuyrugu.put(("log", m)))
                 dosya = self.core.mizan_raporu_olustur(kisa_ad, log=lambda m: self.olay_kuyrugu.put(("log", m)))
+                self.core.musteri_kartina_don(log=lambda m: self.olay_kuyrugu.put(("log", m)))
                 self.olay_kuyrugu.put(("rapor_tamam", dosya))
             except Exception as e:
                 self.olay_kuyrugu.put(("hata", str(e), traceback.format_exc()))
