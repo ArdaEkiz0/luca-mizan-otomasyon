@@ -1448,6 +1448,50 @@ class TestMizanTarihAraligi(unittest.TestCase):
         self.assertEqual(core._tarih_normalize("  31/12/2026  "), "31/12/2026")
 
 
+# ============================================================
+# Web arayüz (web_ui) TESTLERİ
+# ============================================================
+
+class TestWebUI(unittest.TestCase):
+
+    def test_boyut_formatla(self):
+        import web_ui
+        self.assertEqual(web_ui._boyut_formatla(500), "500 B")
+        self.assertEqual(web_ui._boyut_formatla(2048), "2.0 KB")
+        self.assertEqual(web_ui._boyut_formatla(2 * 1024 * 1024), "2.0 MB")
+
+    def test_uygulama_durumu_log(self):
+        import web_ui
+        durum = web_ui.UygulamaDurumu()
+        durum.log_ekle("HATA: bir sey oldu")
+        durum.log_ekle("BAŞARILI: rapor kaydedildi")
+        durum.log_ekle("UYARI: dikkat")
+        durum.log_ekle("normal mesaj")
+        with durum.kilit:
+            self.assertEqual(len(durum.loglar), 4)
+            seviyeler = [l["seviye"] for l in durum.loglar]
+        self.assertEqual(seviyeler, ["hata", "basarili", "uyari", "bilgi"])
+
+    def test_uygulama_durumu_rapor(self):
+        import web_ui
+        durum = web_ui.UygulamaDurumu()
+        with tempfile.TemporaryDirectory() as tmp:
+            dosya = Path(tmp) / "test.xlsx"
+            dosya.write_bytes(b"x" * 100)
+            durum.rapor_ekle(dosya)
+            with durum.kilit:
+                self.assertEqual(len(durum.raporlar), 1)
+                self.assertEqual(durum.raporlar[0]["dosya"], "test.xlsx")
+
+    def test_durum_baslat_tek_islem(self):
+        import web_ui
+        durum = web_ui.UygulamaDurumu()
+        self.assertTrue(durum.durum_baslat("calisiyor"))
+        self.assertFalse(durum.durum_baslat("yine calisiyor"))
+        durum.durum_bitir("bitti")
+        self.assertTrue(durum.durum_baslat("tekrar"))
+
+
 if __name__ == "__main__":
     test_klasor = Path("test_raporlar")
     if test_klasor.exists():

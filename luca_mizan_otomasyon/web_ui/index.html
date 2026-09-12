@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luca Mizan Otomasyonu</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<!-- Animasyonlu arka plan -->
+<div class="arka-plan" aria-hidden="true">
+  <div class="kure k1"></div>
+  <div class="kure k2"></div>
+  <div class="kure k3"></div>
+  <div class="kure k4"></div>
+  <div class="izgara"></div>
+</div>
+
+<div class="kapsayici">
+  <!-- Üst çubuk -->
+  <header class="ust-bar kart">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" width="34" height="34" fill="none">
+        <defs>
+          <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#7c3aed"/>
+            <stop offset="1" stop-color="#06b6d4"/>
+          </linearGradient>
+        </defs>
+        <rect x="1" y="1" width="22" height="22" rx="6" fill="url(#lg)"/>
+        <path d="M6 6 L10 10 L6 14 L4 12 M14 6 L18 10 L14 14 M6 18 L10 18 M14 18 L18 18" stroke="#fff" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+      </svg>
+      <div class="logo-yazi">
+        <span class="baslik">Luca <b>Mizan</b> Otomasyonu</span>
+        <span class="alt-baslik">Raporlarınız bir tık uzağınızda</span>
+      </div>
+    </div>
+
+    <div class="durum-rozeti" id="durumRozeti">
+      <span class="durum-nokta" id="durumNokta"></span>
+      <span class="durum-yazi" id="durumYazi">Hazir</span>
+    </div>
+  </header>
+
+  <!-- Giriş bilgileri -->
+  <section class="kart blok blok-giris">
+    <div class="kart-baslik">
+      <span class="ikon">&#128274;</span>
+      <h2>Giris Bilgileri</h2>
+    </div>
+    <div class="form-satir">
+      <label for="uyeNo">Uye No</label>
+      <input id="uyeNo" type="text" placeholder="12345" autocomplete="off">
+      <label for="kullaniciAdi">Kullanici Adi</label>
+      <input id="kullaniciAdi" type="text" placeholder="kullanici@luca.com" autocomplete="off">
+      <label for="parola">Parola</label>
+      <input id="parola" type="password" placeholder="••••••••">
+      <button class="btn btn-yesil btn-kucuk" id="kaydetBtn" onclick="ayarlariKaydet()">Kaydet</button>
+    </div>
+  </section>
+
+  <!-- Filtreler -->
+  <section class="kart blok blok-filtre">
+    <div class="kart-baslik">
+      <span class="ikon">&#128269;</span>
+      <h2>Filtre ve Musteri Secimi</h2>
+    </div>
+    <div class="form-satir">
+      <label for="yil">Yil</label>
+      <select id="yil"></select>
+      <label for="sinif">Sinif</label>
+      <select id="sinif"></select>
+      <label for="tarihIlk">Baslangic <small>(8 rakam)</small></label>
+      <input id="tarihIlk" type="text" placeholder="01012026" maxlength="10" inputmode="numeric">
+      <label for="tarihSon">Bitis <small>(8 rakam)</small></label>
+      <input id="tarihSon" type="text" placeholder="31122026" maxlength="10" inputmode="numeric">
+      <button class="btn btn-mor" id="getirBtn" onclick="musterileriGetir()">
+        <span class="btn-ikon">&#8635;</span> Musterileri Getir
+      </button>
+    </div>
+    <p class="ipucu">Tarih bos birakilirsa tum yil raporlanir. Sadece rakam yazin, noktalar otomatik gelir.</p>
+  </section>
+
+  <!-- Müşteri tablosu -->
+  <section class="kart blok blok-tablo">
+    <div class="kart-baslik">
+      <span class="ikon">&#128202;</span>
+      <h2>Musteriler</h2>
+      <span class="etiket" id="musteriSayisi">0 musteri</span>
+      <input class="arama" id="arama" type="text" placeholder="Ara... (isim yazin)" oninput="tabloFiltrele()">
+    </div>
+    <div class="tablo-sarici">
+      <table class="tablo" id="musteriTablo">
+        <thead>
+          <tr>
+            <th>Kisa Ad</th>
+            <th>Uzun Ad</th>
+            <th>Vergi Dairesi</th>
+            <th>Vergi No</th>
+          </tr>
+        </thead>
+        <tbody id="tabloGovde">
+          <tr class="bos-satir"><td colspan="4">Oncelikle "Musterileri Getir" butonuna basin.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Aksiyonlar -->
+  <section class="kart blok blok-aksiyon">
+    <button class="btn btn-mor btn-buyuk" id="raporBtn" onclick="raporOlustur()" disabled>
+      <span class="btn-ikon">&#128196;</span> Mizan Raporu Olustur
+    </button>
+    <button class="btn btn-turkuaz btn-buyuk" id="topluBtn" onclick="topluRapor()" disabled>
+      <span class="btn-ikon">&#128220;</span> Tum Musteriler Icin Rapor
+    </button>
+    <button class="btn btn-kirmizi btn-buyuk" id="kapatBtn" onclick="tarayiciyiKapat()" disabled>
+      <span class="btn-ikon">&#9889;</span> Tarayiciyi Kapat
+    </button>
+
+    <div class="ilerleme-sarici">
+      <div class="ilerleme" id="ilerleme"></div>
+    </div>
+  </section>
+
+  <!-- İndirilen raporlar -->
+  <section class="kart blok blok-raporlar">
+    <div class="kart-baslik">
+      <span class="ikon">&#128190;</span>
+      <h2>Indirilen Raporlar</h2>
+      <span class="etiket" id="raporSayisi">0 dosya</span>
+      <div class="sag-butonlar">
+        <button class="btn btn-yesil btn-kucuk" onclick="dosyaAc(true)">Klasoru Ac</button>
+        <button class="btn btn-gri btn-kucuk" onclick="raporListesiTemizle()">Temizle</button>
+      </div>
+    </div>
+    <div class="rapor-liste" id="raporListe">
+      <div class="bos-liste">Henuz rapor indirilmedi.</div>
+    </div>
+  </section>
+
+  <!-- Log -->
+  <section class="kart blok blok-log">
+    <div class="kart-baslik">
+      <span class="ikon">&#128225;</span>
+      <h2>Islem Logu</h2>
+      <button class="btn btn-gri btn-kucuk" onclick="logTemizle()">Logu Temizle</button>
+    </div>
+    <div class="log-konsol" id="logKonsol">
+      <div class="log-satir bilgi">Sisteme hos geldiniz. Baslamak icin giris bilgilerinizi kontrol edip "Musterileri Getir"e basin.</div>
+    </div>
+  </section>
+
+  <footer class="alt-bilgi">Luca Mizan Raporu Otomasyonu &middot; v3.0</footer>
+</div>
+
+<div class="toast-sarici" id="toastSarici"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>
