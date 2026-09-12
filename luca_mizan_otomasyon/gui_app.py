@@ -158,7 +158,7 @@ class LucaGUI(ctk.CTk):
 
     def _arayuzu_olustur(self, ayar: dict) -> None:
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(3, weight=1)
+        self.grid_rowconfigure(5, weight=1)
 
         # --- Baslik ---
         baslik_frame = ctk.CTkFrame(self, fg_color=RENKLER["baslik"], corner_radius=0, height=50)
@@ -317,12 +317,12 @@ class LucaGUI(ctk.CTk):
         kaydirma.pack(side="right", fill="y")
 
         # --- Aksiyon butonlari ---
-        aksiyon_frame = ctk.CTkFrame(self, fg_color="transparent")
-        aksiyon_frame.grid(row=3, column=0, padx=20, pady=(0, 4), sticky="ew")
+        aksiyon_frame = ctk.CTkFrame(self, fg_color=RENKLER["panel_arka"], corner_radius=10)
+        aksiyon_frame.grid(row=3, column=0, padx=20, pady=5, sticky="ew")
         aksiyon_frame.grid_columnconfigure(0, weight=1)
 
         buton_satiri = ctk.CTkFrame(aksiyon_frame, fg_color="transparent")
-        buton_satiri.grid(row=0, column=0, sticky="w", pady=(0, 6))
+        buton_satiri.grid(row=0, column=0, sticky="w", padx=15, pady=(10, 4))
 
         self.rapor_btn = ctk.CTkButton(
             buton_satiri, text="Mizan Raporu Olustur", state="disabled",
@@ -346,7 +346,7 @@ class LucaGUI(ctk.CTk):
         self.kapat_btn.pack(side="left", pady=2)
 
         durum_satiri = ctk.CTkFrame(aksiyon_frame, fg_color="transparent")
-        durum_satiri.grid(row=1, column=0, sticky="ew")
+        durum_satiri.grid(row=1, column=0, sticky="ew", padx=15, pady=(0, 10))
         durum_satiri.grid_columnconfigure(0, weight=1)
 
         self.durum_var = ctk.StringVar(value="Hazir")
