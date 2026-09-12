@@ -993,7 +993,32 @@ class LucaOtomasyonCore:
             self.liste_frame.wait_for_selector("table.data-table tr.satir", timeout=10000)
         except Exception:
             pass
-        satir = self.liste_frame.locator("table.data-table tr.satir", has_text=kisa_ad).first
+
+        # Önce tabloda müşteri var mı kontrol et (30 sn beklemeden)
+        satir_sayisi = self.liste_frame.locator("table.data-table tr.satir").count()
+        log(f"  Tabloda {satir_sayisi} satır bulundu.")
+        if satir_sayisi == 0:
+            raise RuntimeError(
+                f"Tabloda hiç satır yok! Filtre uygulanmamış olabilir. "
+                f"Müşteri listesine geri dönüp filtreleri kontrol edin."
+            )
+
+        # Müşteri tabloda var mı kontrol et
+        eslesme = self.liste_frame.locator("table.data-table tr.satir", has_text=kisa_ad)
+        if eslesme.count() == 0:
+            # Kısa ad ile eşleşme yoksa, tablodaki tüm isimleri logla
+            mevcut_isimler = []
+            for i in range(min(satir_sayisi, 10)):
+                try:
+                    isim = self.liste_frame.locator("table.data-table tr.satir").nth(i).locator("td").nth(1).inner_text().strip()
+                    mevcut_isimler.append(isim)
+                except Exception:
+                    pass
+            raise RuntimeError(
+                f"'{kisa_ad}' tabloda bulunamadı! Tablodaki ilk isimler: {mevcut_isimler}"
+            )
+
+        satir = eslesme.first
         satir.click()
 
         # ÖNEMLİ: "Detay" düğmesi -tıpkı 'LUCA MALİ MÜŞAVİR PAKETİ' kartında
@@ -1027,29 +1052,89 @@ class LucaOtomasyonCore:
         self.dashboard.wait_for_timeout(1000)
 
     def _filtreleri_uygula(self, log: LogFn = _sessiz_log) -> None:
-        """Müşteri listesi sayfasında Yıl/Sınıf filtrelerini uygula."""
-        log(f"  Filtre uygulanıyor: Yıl={self._son_yil}, Sınıf={SINIF_ETIKETLERI.get(self._son_sinif, self._son_sinif)}")
+        """Müşteri listesi sayfasında Yıl/Sınıf filtrelerini uygula.
+
+        Her adımda başarısız olursa yeniden dener. Toplu rapor akışında
+        filtrelerin doğru uygulanması kritiktir — filtre uygulanmazsa
+        müşteri bulunamaz.
+        """
+        yil = self._son_yil
+        sinif = self._son_sinif
+        log(f"  Filtre uygulanıyor: Yıl={yil}, Sınıf={SINIF_ETIKETLERI.get(sinif, sinif)}")
+
+        # ADIM 1: Frame'i bul
+        for deneme in range(3):
+            try:
+                self.liste_frame = self._frame_bul(self.dashboard, "#YIL", deneme=20, bekleme_ms=500)
+                break
+            except Exception as e:
+                log(f"  ...frame bulunamadı (deneme {deneme+1}/3): {e}")
+                if deneme < 2:
+                    self.dashboard.wait_for_timeout(2000)
+                else:
+                    log("  HATA: Frame hiç bulunamadı, filtre uygulanamıyor!")
+                    return
+
+        # ADIM 2: Filtre panelini aç
         try:
-            # Filtre butonunu tıkla, Yıl seç
             self._rol_buton_tikla(self.liste_frame, "Filtre", log)
             self.liste_frame.wait_for_selector("#YIL", state="visible", timeout=10000)
-            self.liste_frame.locator("#YIL").select_option(self._son_yil)
-            # Yıl seçimi sayfayı yeniden yükler, frame'i yeniden bul
+            log("  Filtre paneli açıldı, #YIL görünür.")
+        except Exception as e:
+            log(f"  HATA: Filtre paneli açılamadı: {e}")
+            return
+
+        # ADIM 3: Yıl seç
+        try:
+            self.liste_frame.locator("#YIL").select_option(yil)
+            log(f"  Yıl seçildi: {yil}")
+        except Exception as e:
+            log(f"  HATA: Yıl seçilemedi: {e}")
+            return
+
+        # ADIM 4: Yıl seçimi sayfayı yeniden yükler, frame'i yeniden bul
+        try:
             self.liste_frame.wait_for_load_state("domcontentloaded")
-            self.liste_frame.wait_for_timeout(500)
-            self.liste_frame = self._frame_bul(self.dashboard, "#YIL")
-            # Sınıf seç
+            self.liste_frame.wait_for_timeout(1000)
+            self.liste_frame = self._frame_bul(self.dashboard, "#YIL", deneme=20, bekleme_ms=500)
+            log("  Sayfa yeniden yüklendi, frame bulundu.")
+        except Exception as e:
+            log(f"  HATA: Sayfa yeniden yüklendikten sonra frame bulunamadı: {e}")
+            return
+
+        # ADIM 5: Filtre panelini tekrar aç
+        try:
             self._rol_buton_tikla(self.liste_frame, "Filtre", log)
             self.liste_frame.wait_for_selector("#SINIF", state="visible", timeout=10000)
-            self.liste_frame.locator("#SINIF").select_option(self._son_sinif)
-            # Ara
-            self._rol_buton_tikla(self.liste_frame, "Ara", log)
-            self.liste_frame.wait_for_timeout(1500)
-            # Satırların yüklenmesini bekle
-            self.liste_frame.wait_for_selector("table.data-table tr.satir", timeout=15000)
-            log("  Filtre uygulandı, tablo yüklendi.")
+            log("  Filtre paneli tekrar açıldı, #SINIF görünür.")
         except Exception as e:
-            log(f"  UYARI: Filtre uygulanırken hata — {e}. Tablo filtresiz yüklenebilir.")
+            log(f"  HATA: Filtre paneli tekrar açılamadı: {e}")
+            return
+
+        # ADIM 6: Sınıf seç
+        try:
+            self.liste_frame.locator("#SINIF").select_option(sinif)
+            log(f"  Sınıf seçildi: {SINIF_ETIKETLERI.get(sinif, sinif)}")
+        except Exception as e:
+            log(f"  HATA: Sınıf seçilemedi: {e}")
+            return
+
+        # ADIM 7: Ara butonuna bas
+        try:
+            self._rol_buton_tikla(self.liste_frame, "Ara", log)
+            log("  'Ara' tıklandı.")
+        except Exception as e:
+            log(f"  HATA: 'Ara' tıklanamadı: {e}")
+            return
+
+        # ADIM 8: Tablonun yüklenmesini bekle
+        self.liste_frame.wait_for_timeout(2000)
+        try:
+            self.liste_frame.wait_for_selector("table.data-table tr.satir", timeout=15000)
+            satir_sayisi = self.liste_frame.locator("table.data-table tr.satir").count()
+            log(f"  Filtre uygulandı, tablo yüklendi ({satir_sayisi} satır).")
+        except Exception as e:
+            log(f"  UYARI: Tablo satırları yüklenemedi: {e}")
 
     def musteri_kartina_don(self, log: LogFn = _sessiz_log) -> None:
         """Müşteri listesine geri dön — toplu rapor akışı için gereklidir.
