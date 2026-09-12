@@ -1405,6 +1405,7 @@ class LucaOtomasyonCore:
         # üst menüyle ("Muhasebe") aynı çerçevede değil — Luca bunları
         # paylaşılan, ayrı bir açılır-menü içerik çerçevesine yerleştiriyor.
         # Bu yüzden her adımda ilgili metni içeren çerçeveyi yeniden arıyoruz.
+        sirket_id = None  # outer scope — _mizan_ac() nonlocal ile yazar
         def _mizan_ac() -> None:
             """Mizan sayfasını doğrudan URL ile aç — seçili müşterinin
             context'ini (sid + DONEM_ID) URL'e ekleyerek.
@@ -1414,6 +1415,7 @@ class LucaOtomasyonCore:
             açılırsa sunucu varsayılan firmaya (Şule Çataloğlu) düşer ve
             yanlış müşterinin mizanı gelir.
             """
+            nonlocal sirket_id
             from time import time as _zaman
             from urllib.parse import parse_qs, urlparse
 
