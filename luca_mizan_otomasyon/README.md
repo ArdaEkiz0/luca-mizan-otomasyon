@@ -1,113 +1,113 @@
 # Luca Mizan Raporu Otomasyonu
 
-LUCA Mali Müşavir Paketi'nde şu işlemleri sizin yerinize otomatikleştiren,
-grafik arayüzlü bir masaüstü uygulaması:
+LUCA Mali Müşavir Paketi'nde müşteri mizan raporlarını otomatik oluşturan,
+**modern animasyonlu arayüzlü bir masaüstü uygulaması**.
 
-1. Oturum açma
-2. Yönetici → Müşteri İşlemleri → Müşteri Listesi'ni açma
-3. Yıl ve Sınıf (ör. 1.Sınıf) filtresini uygulama
-4. Filtrelenen listeyi bir tabloda gösterme, aralarından **tek** müşteri veya **tümünü** seçtirme
-5. Muhasebe → Raporlar → Genel Raporlar → Mizan ekranını açma
-6. Ayarları uygulama: tarih aralığı boş, döviz kolonları gizli, sıfır bakiyeli hesaplar gizli
-7. Raporu oluşturup indirmeyi deneme (tekli veya toplu)
+## Özellikler
 
-## Tek tıkla başlatma (Windows)
+- 🚀 **Tek tıkla kurulum + başlatma** (Windows `.bat`)
+- 🎨 **Modern animasyonlu arayüz** — hareketli gradyan arka plan, cam efekti
+  (glassmorphism), parlayan butonlar, canlı log konsolu
+- 📋 **Müşteri listesi** — Yıl/Sınıf filtresi, canlı arama, tek veya toplu seçim
+- 📅 **Tarih aralığı** — sadece 8 rakam yazarsınız (örn. `01012026`), noktalar
+  otomatik eklenir; boş bırakırsanız tüm yıl raporlanır
+- 📊 **Mizan raporu** — tek müşteri veya filtrelenen tüm müşteriler için sıralı
+  toplu rapor; çıktılar `raporlar/` klasörüne Excel (.xlsx) olarak kaydedilir
+- 🔒 **Güvenlik** — kimlik bilgileri yalnızca kendi bilgisayarınızdaki `.env`
+  dosyasında saklanır; hiçbir yere gönderilmez/git'e eklenmez
 
-Bu klasördeki **`Mizan_Raporu_Baslat.bat`** dosyasına çift tıklamanız yeterli.
+## Ekran görüntüsü
 
-- İlk çalıştırmada gerekli kurulumu (sanal ortam, paketler, Chromium)
-  otomatik yapar — biraz sürebilir.
-- Ardından grafik arayüz penceresi açılır (aşağıya bakın).
+> Arayüz tarayıcıda değil, **kendi masaüstü penceresinde** açılır
+> (pywebview / Windows WebView2 ile). Tarayıcı açılmaz.
 
-Python bilgisayarınızda kurulu değilse `.bat` dosyası bunu size söyler ve
-kurulum bağlantısını verir; Python'u kurduktan sonra `.bat`'a tekrar çift
-tıklamanız yeterli. **Not:** Python'u python.org'dan kurarken varsayılan
-seçenekleri değiştirmeyin — grafik arayüz için gereken "tcl/tk" bileşeni
-varsayılan kurulumla birlikte gelir.
+## Hızlı Başlangıç (Windows)
 
-## Grafik arayüz nasıl kullanılır
+Python'un kurulu olduğunu varsayar. **`Mizan_Raporu_Baslat.bat`** dosyasına
+çift tıklayın — sanal ortam, bağımlılıklar ve Chromium otomatik kurulur,
+ardından uygulama açılır.
 
-Pencere açıldığında:
+> Python kurulu değilse: [python.org](https://www.python.org/downloads/)'dan
+> kurun, "Add Python to PATH" seçeneğini işaretleyin, sonra `.bat`'a tekrar
+> çift tıklayın.
 
-1. **Giriş Bilgileri** bölümüne Üye Numarası / Kullanıcı Adı / Parolanızı
-   girin (bir sonraki sefer hatırlanması için "Bilgileri Kaydet (.env)"
-   butonuna basabilirsiniz — bilgiler yalnızca bu bilgisayardaki `.env`
-   dosyasında saklanır).
-2. **Filtre ve Müşteri Seçimi** bölümünden Yıl ve Sınıf'ı seçip
-   "Müşterileri Getir" butonuna basın. Arka planda bir tarayıcı açılıp
-   giriş yapılır ve eşleşen müşteriler alttaki tabloda listelenir.
-3. Tablodan rapor almak istediğiniz müşteriyi tıklayın, ardından
-   "Mizan Raporu Oluştur" butonuna basın. Ya da "Tüm Müşteriler İçin Rapor"
-   butonuna basarak filtrelenen tüm müşteriler için sıralı rapor alabilirsiniz.
-4. Alt kısımdaki günlük (log) alanından ilerlemeyi takip edebilirsiniz.
-   Rapor hemen indirilebilirse `raporlar/` klasörüne kaydedilir; Luca
-   raporu arka planda hazırlıyorsa size "Rapor Takip" menüsüne
-   yönlendiren bir not düşer.
-5. İşiniz bittiğinde "Tarayıcıyı Kapat" ile oturumu kapatabilir, ya da
-   "Müşterileri Getir"e tekrar basarak başka bir Yıl/Sınıf ile yeniden
-   başlayabilirsiniz.
+İlk açılışta:
 
-## Elle kurulum (macOS/Linux veya .bat kullanmadan)
+1. **Giriş Bilgileri**'ne Üye No / Kullanıcı Adı / Parola girin → **Kaydet**
+   (bilgiler `.env` dosyasına yazılır, bir sonraki sefere hatırlanır)
+2. **Müşterileri Getir**'e basın — arka planda tarayıcı açılır, giriş yapılır;
+   **KULLANICI ADI alanını siz elle girip "Giriş"e basarsınız** (güvenlik
+   gereği otomasyon bu alanı doldurmaz)
+3. Tablodan müşteri seçin → **Mizan Raporu Oluştur**, ya da
+   **Tüm Müşteriler İçin Rapor** ile toplu rapor alın
+4. İsterseniz **Tarih Aralığı**'na başlangıç/bitiş yazın (8 rakam, örn.
+   `01012026` – `31032026`); boş = tüm yıl
+
+## Elle Kurulum (Windows / macOS / Linux)
 
 ```bash
-cd luca_mizan_otomasyon
-python3 -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+git clone https://github.com/ArdaEkiz0/luca-mizan-otomasyon.git
+cd luca-mizan-otomasyon
+
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
 
 pip install -r requirements.txt
 playwright install chromium
 
-cp .env.example .env            # ilk çalıştırmada boş bırakabilirsiniz,
-                                 # bilgileri arayüzden de girebilirsiniz
+cp .env.example .env   # kendi bilgilerinizi girin (veya arayüzden girin)
 
-python gui_app.py               # grafik arayüz
+python arayuz.py       # masaüstü pencere (pywebview; yoksa tarayıcıda açılır)
 # veya
-python luca_mizan_otomasyon.py  # komut satırı (CLI) sürümü
+python web_ui.py       # yalnızca yerel web sunucusu + tarayıcıda arayüz
 ```
 
-## Dosyalar
+## Dosya Yapısı
 
-| Dosya | Ne işe yarar |
+| Dosya | Açıklama |
 |---|---|
-| `Mizan_Raporu_Baslat.bat` | Windows'ta çift tıkla başlatma (kurulum + `gui_app.py`) |
-| `gui_app.py` | Grafik arayüz (önerilen kullanım şekli) |
-| `luca_mizan_otomasyon.py` | Komut satırı (CLI) sürümü — aynı motoru kullanır |
-| `luca_otomasyon_core.py` | Asıl otomasyon mantığı (Playwright); hem GUI hem CLI bunu kullanır |
-| `.env` / `.env.example` | Giriş bilgileri ve varsayılan filtre ayarları |
-| `requirements.txt` | Python bağımlılıkları |
+| `arayuz.py` | Masaüstü pencere giriş noktası (pywebview) |
+| `web_ui.py` | Yerel HTTP sunucusu + arka plan otomasyon işçisi + API |
+| `web_ui/` | Modern arayüz (HTML/CSS/JS) ve ikon |
+| `luca_otomasyon_core.py` | Asıl otomasyon motoru (Playwright) — firma seçimi, mizan oluşturma |
+| `Mizan_Raporu_Baslat.bat` | Windows tek tıkla kurulum + başlatma |
+| `.env` / `.env.example` | Giriş bilgileri ve varsayılan filtreler |
+| `logo_uret.py` | Terazi logoyu `.ico`/`.png` olarak üretir |
+| `test_unit.py` | 70+ birim testi |
 
-## Ayarları değiştirme
-
-`.env` dosyasındaki (veya arayüzdeki) şu değerlerle varsayılan filtreyi değiştirebilirsiniz:
+## Ayarlar (`.env`)
 
 ```
-MIZAN_YIL=2026
-MIZAN_SINIF=1        # 1=1.Sınıf, 2=2.Sınıf, 3=İşletme Defteri, 4=Serbest Meslek Defteri, 5=Basit Usül
+LUCA_UYE_NO=          # Luca üye numaranız
+LUCA_KULLANICI_ADI=   # Luca kullanıcı adınız
+LUCA_PAROLA=          # Luca parolanız
+MIZAN_YIL=2026        # varsayılan yıl
+MIZAN_SINIF=1         # 1=1.Sınıf, 2=2.Sınıf, 3=İşletme Defteri, 4=Serbest Meslek, 5=Basit Usül
 CIKTI_KLASORU=raporlar
 ```
 
-## Neden şifrenizi ben (Claude) girmedim, uygulama giriyor?
+> ⚠️ **`.env` dosyanızı kimseyle paylaşmayın.** Bu dosya `.gitignore`'da
+> olduğu için git'e/gitHub'a asla yüklenmez.
 
-Canlı bir tarayıcı oturumunda kimlik bilgilerinizi başkasının (benim) sizin
-adınıza girmesi güvenlik açısından uygun değildi. Ama kendi bilgisayarınızda
-çalışan, kimlik bilgilerini yalnızca sizin doldurduğunuz yerel bir dosyadan
-okuyan bir uygulama yazmak farklı bir şey — bu, bir şifre yöneticisi
-kullanmaya benzer bir örüntü. Uygulama, üye no/kullanıcı adı/parolanızı
-`.env` dosyanızdan (veya arayüzdeki alanlardan) okuyup formu kendisi dolduruyor.
+## Teknik Notlar
 
-**`.env` dosyanızı kimseyle paylaşmayın, e-postayla göndermeyin, git'e eklemeyin.**
+- **Nasıl çalışır?** Luca, raporun hangi firma için hazırlanacağını sağ
+  üstteki firma seçicisinden (`SirketCombo`) alır. Otomasyon bu seçiciyi
+  Playwright ile otomatik yönetir: firmayı seçer, dönemi ayarlar, "Tamam"a
+  basar; ardından mizan sayfasını doğru firmayla açar.
+- **Kimlik doğrulama:** Giriş sırasında KULLANICI ADI alanı bilinçli olarak
+  sizin için boş bırakılır (iki adımlı doğrulama olabilir). Tarayıcı görünür
+  çalıştığı için müdahale edebilirsiniz.
+- **Toplu rapor:** Filtrelenen tüm müşteriler sırayla işlenir; her müşteri
+  için firma seçimi yeniden yapılır, böylece raporlar doğru firmaya aittir.
 
-## Bilinen sınırlamalar
+## Lisans
 
-- Luca arayüzü klasik "frameset" tabanlı, eski nesil bir web uygulaması.
-  Menü metinleri veya alan kimlikleri (id) Luca tarafında değişirse ilgili
-  adımın güncellenmesi gerekir. Tüm mantık `luca_otomasyon_core.py` içinde
-  ayrı, isimlendirilmiş fonksiyonlarda olduğu için düzeltmek kolaydır.
-- Uygulama hem **tek** hem de **toplu** müşteri raporu için çalışacak şekilde
-  tasarlandı. Toplu modda tüm filtrelenen müşteriler için sırasıyla rapor
-  oluşturulur.
-- İki adımlı doğrulama (varsa) veya beklenmeyen bir uyarı penceresi çıkarsa,
-  tarayıcı görünür olduğu için elle müdahale edebilirsiniz.
+Bu proje kişisel kullanım ve öğrenme amacıyla yayınlanmıştır. LUCA ile
+etkileşimi otomasyona bırakmadan önce ilgili hizmet şartlarını kontrol edin.
 
 ---
 
