@@ -25,7 +25,8 @@ LUCA Mali Müşavir Paketi'nde müşteri mizan raporlarını otomatik oluşturan
 
 Python'un kurulu olduğunu varsayar. **`Mizan_Raporu_Baslat.bat`** dosyasına
 çift tıklayın — sanal ortam, bağımlılıklar ve Chromium otomatik kurulur,
-ardından uygulama açılır.
+ardından uygulama açılır. İlk açılışta **masaüstüne otomatik bir kısayol**
+oluşturulur; bir daha klasörden açmanıza gerek kalmaz.
 
 > Python kurulu değilse: [python.org](https://www.python.org/downloads/)'dan
 > kurun, "Add Python to PATH" seçeneğini işaretleyin, sonra `.bat`'a tekrar
@@ -76,7 +77,14 @@ python web_ui.py       # yalnızca yerel web sunucusu + tarayıcıda arayüz
 | `Mizan_Raporu_Baslat.bat` | Windows tek tıkla kurulum + başlatma |
 | `.env` / `.env.example` | Giriş bilgileri ve varsayılan filtreler |
 | `logo_uret.py` | Terazi logoyu `.ico`/`.png` olarak üretir |
+| `kisayol_olustur.py` | İlk açılışta masaüstüne ikonlu kısayol oluşturur |
 | `test_unit.py` | 70+ birim testi |
+
+## Sürüm Geçmişi
+
+- **v3.1** — Masaüstüne otomatik kısayol, güncellenmiş kısayol yönetimi
+- **v3.0** — Modern animasyonlu web tabanlı masaüstü arayüz (terazi logo),
+  PyInstaller hazırlıkları
 
 ## Ayarlar (`.env`)
 

@@ -20,7 +20,7 @@ from pathlib import Path
 
 import web_ui
 
-PENCERE_BASLIK = "Luca Mizan Otomasyonu — Developer: Arda M. Ekiz"
+PENCERE_BASLIK = "Luca Mizan Otomasyonu v3.1 — Developer: Arda M. Ekiz"
 PENCERE_GENISLIK = 1180
 PENCERE_YUKSEKLIK = 800
 
