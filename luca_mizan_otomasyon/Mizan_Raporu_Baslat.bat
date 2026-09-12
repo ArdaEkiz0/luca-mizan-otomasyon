@@ -7,10 +7,17 @@ echo   LUCA MIZAN RAPORU OTOMASYONU
 echo ==========================================
 echo(
 
-REM --- Oncelikle venv kontrolü (zaten kurulu mu?) ---
+REM --- Oncelikle venv kontrolü (zaten kurulu mu ve calisiyor mu?) ---
 if exist "venv\Scripts\python.exe" (
-    echo [*] Mevcut sanal ortam kullaniliyor...
-    goto :venv_var
+    echo [*] Mevcut sanal ortam kontrol ediliyor...
+    venv\Scripts\python.exe --version >nul 2>nul
+    if not errorlevel 1 (
+        echo [*] Sanal ortam saglam, devam ediliyor...
+        goto :venv_var
+    )
+    echo [*] Eski sanal ortam bozuk, siliniyor...
+    rmdir /s /q venv
+    echo [*] Yeni sanal ortam kurulacak...
 )
 
 REM --- Python bul ---
