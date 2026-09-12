@@ -108,10 +108,32 @@ echo(
 :env_hazir
 
 echo(
-echo [*] Uygulama baslatiliyor (masaustu pencere)...
+REM --- Derlenmis .exe varsa onu kullan (gorev cubugu ikonu icin en iyisi) ---
+if exist "dist\LucaMizanOtomasyon\LucaMizanOtomasyon.exe" (
+    echo [*] Uygulama baslatiliyor (masaustu pencere - exe)...
+    echo(
+    start "" "dist\LucaMizanOtomasyon\LucaMizanOtomasyon.exe"
+    goto :son
+)
+
+REM --- .exe yok: ilk calistirmada otomatik derle (gorev cubugu ikonu icin) ---
+echo [*] Uygulama .exe'si bulunamadi, derleniyor (ilk calistirma, ~1 dk)...
+call venv\Scripts\python.exe -m pip install pyinstaller >nul 2>nul
+call venv\Scripts\python.exe -m PyInstaller luca_mizan.spec --noconfirm >nul 2>nul
+if exist "dist\LucaMizanOtomasyon\LucaMizanOtomasyon.exe" (
+    echo [OK] .exe derlendi.
+    echo [*] Uygulama baslatiliyor (masaustu pencere - exe)...
+    echo(
+    start "" "dist\LucaMizanOtomasyon\LucaMizanOtomasyon.exe"
+    goto :son
+)
+
+echo [*] .exe derlenemedi, python moduna geciliyor...
+echo [*] Uygulama baslatiliyor (masaustu pencere - python)...
 echo(
 call venv\Scripts\python.exe arayuz.py
 
+:son
 echo(
 echo ==========================================
 echo   Uygulama kapandi.

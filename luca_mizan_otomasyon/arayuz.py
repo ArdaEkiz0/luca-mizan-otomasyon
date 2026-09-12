@@ -12,6 +12,8 @@ otomatik olarak varsayılan tarayıcıya düşer (yine çalışır).
 
 from __future__ import annotations
 
+import os
+import sys
 import threading
 import traceback
 from pathlib import Path
@@ -21,7 +23,13 @@ import web_ui
 PENCERE_BASLIK = "Luca Mizan Otomasyonu — Developer: Arda M. Ekiz"
 PENCERE_GENISLIK = 1180
 PENCERE_YUKSEKLIK = 800
-IKON_YOLU = Path(__file__).parent / "web_ui" / "ikon.ico"
+
+
+def _ikon_yolu() -> Path:
+    """İkon dosyasının yolunu döndürür (PyInstaller paketinde _MEIPASS içinde)."""
+    if hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / "web_ui" / "ikon.ico"
+    return Path(__file__).parent / "web_ui" / "ikon.ico"
 
 
 def main() -> None:
@@ -56,8 +64,9 @@ def main() -> None:
         # (görev çubuğu + pencere köşesi). webview.start() döndüğünde pencere
         # kapatılmıştır; o noktada sunucuyu ve tarayıcıyı temiz kapat.
         start_ayarlari = {}
-        if IKON_YOLU.exists():
-            start_ayarlari["icon"] = str(IKON_YOLU)
+        ikon = _ikon_yolu()
+        if ikon.exists():
+            start_ayarlari["icon"] = str(ikon)
         webview.start(**start_ayarlari)
         web_ui._temiz_kapat(sunucu)
         return

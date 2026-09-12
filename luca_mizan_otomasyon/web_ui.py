@@ -21,6 +21,7 @@ import mimetypes
 import os
 import queue
 import subprocess
+import sys
 import threading
 import traceback
 import webbrowser
@@ -31,11 +32,31 @@ from dotenv import load_dotenv, set_key
 
 from luca_otomasyon_core import LucaOtomasyonCore, SINIF_ETIKETLERI
 
-BASE_DIR = Path(__file__).parent
-WEB_DIR = BASE_DIR / "web_ui"
-ENV_PATH = BASE_DIR / ".env"
-ENV_EXAMPLE_PATH = BASE_DIR / ".env.example"
-LOG_DOSYASI = BASE_DIR / "otomasyon_log.txt"
+# --- Yol yönetimi (PyInstaller uyumlu) ---
+# Statik arayüz dosyaları (html/css/js/svg/ico) .exe içinde paketlenir;
+# _MEIPASS geçici klasöründe açılır. Kullanıcı verisi (.env, raporlar, log)
+# ise exe'nin YANINDAKİ çalışma dizininde kalıcı olarak tutulur.
+def _kaynak_kok() -> Path:
+    """Paketli statik dosyaların bulunduğu kök (PyInstaller _MEIPASS veya kaynak)."""
+    if hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)
+    return Path(__file__).parent
+
+
+def _veri_kok() -> Path:
+    """Kullanıcı verilerinin kalıcı tutulacağı dizin (exe'nin yanı)."""
+    return Path(os.getcwd()).resolve()
+
+
+KAYNAK_KOK = _kaynak_kok()
+VERI_KOK = _veri_kok()
+
+BASE_DIR = VERI_KOK
+WEB_DIR = KAYNAK_KOK / "web_ui"
+ENV_PATH = VERI_KOK / ".env"
+ENV_EXAMPLE_PATH = KAYNAK_KOK / ".env.example"
+LOG_DOSYASI = VERI_KOK / "otomasyon_log.txt"
+RAPORLAR_DIR = VERI_KOK / "raporlar"
 
 SUNUCU_HOST = "127.0.0.1"
 SUNUCU_PORT = 8765
