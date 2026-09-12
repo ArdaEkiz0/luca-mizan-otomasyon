@@ -509,8 +509,7 @@ class LucaGUI(ctk.CTk):
             self.kapat_btn.configure(state="normal")
             if self.tablo.get_children():
                 self.toplu_rapor_btn.configure(state="normal")
-        if self.secili_kisa_ad is not None:
-            self.rapor_btn.configure(state="normal")
+                self.rapor_btn.configure(state="normal")
 
         if "hata" in durum.lower():
             self.durum_label.configure(text_color=RENKLER["durum_hata"])
@@ -569,8 +568,16 @@ class LucaGUI(ctk.CTk):
             self.rapor_btn.configure(state="normal")
 
     def _rapor_olustur(self) -> None:
-        if self.calisiyor or self.core is None or not self.secili_kisa_ad:
+        if self.calisiyor or self.core is None:
             return
+        if not self.secili_kisa_ad:
+            secim = self.tablo.selection()
+            if secim:
+                degerler = self.tablo.item(secim[0], "values")
+                self.secili_kisa_ad = degerler[0]
+            else:
+                messagebox.showwarning("Müşteri Seçilmedi", "Lütfen listeden bir müşteri seçin.")
+                return
         kisa_ad = self.secili_kisa_ad
         self._mesgul_baslat(f"'{kisa_ad}' icin Mizan raporu olusturuluyor...")
 
