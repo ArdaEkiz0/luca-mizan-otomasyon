@@ -492,6 +492,37 @@ class ApiHandler(BaseHTTPRequestHandler):
         pass
 
 
+def _temiz_kapat(sunucu=None) -> None:
+    """Uygulama kapanırken tarayıcı/core'u temiz kapat."""
+    with DURUM.kilit:
+        core = DURUM.core
+        DURUM.core = None
+    if core is not None:
+        try:
+            core.kapat()
+        except Exception:
+            pass
+    if sunucu is not None:
+        try:
+            sunucu.server_close()
+        except Exception:
+            pass
+
+
+def sunucu_baslat(port: int | None = None) -> "tuple[str, ThreadingHTTPServer]":
+    """HTTP sunucusunu arka plan iş parçacığında başlatır.
+
+    Pencere (masaüstü uygulama) modu için kullanılır: bu fonksiyon adresi
+    ve sunucu nesnesini döndürür; arayüz tarafı ana thread'de kalır.
+    """
+    WEB_DIR.mkdir(parents=True, exist_ok=True)
+    kullanilacak_port = port or SUNUCU_PORT
+    sunucu = ThreadingHTTPServer((SUNUCU_HOST, kullanilacak_port), ApiHandler)
+    threading.Thread(target=sunucu.serve_forever, daemon=True).start()
+    adres = f"http://{SUNUCU_HOST}:{kullanilacak_port}"
+    return adres, sunucu
+
+
 def main() -> None:
     _dosyaya_log_yaz("=" * 20 + " Uygulama baslatildi (web arayüz) " + "=" * 20)
     WEB_DIR.mkdir(parents=True, exist_ok=True)
@@ -519,15 +550,7 @@ def main() -> None:
     except KeyboardInterrupt:
         pass
     finally:
-        with DURUM.kilit:
-            core = DURUM.core
-            DURUM.core = None
-        if core is not None:
-            try:
-                core.kapat()
-            except Exception:
-                pass
-        sunucu.server_close()
+        _temiz_kapat(sunucu)
 
 
 if __name__ == "__main__":

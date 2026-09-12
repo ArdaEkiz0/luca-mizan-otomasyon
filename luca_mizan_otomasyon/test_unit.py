@@ -1492,6 +1492,23 @@ class TestWebUI(unittest.TestCase):
         self.assertTrue(durum.durum_baslat("tekrar"))
 
 
+class TestArayuzModulu(unittest.TestCase):
+
+    def test_arayuz_import_edilir(self):
+        """arayuz.py sorunsuz içe aktarılabilmeli (sözdizimi sağlam)."""
+        import arayuz
+        self.assertIsNotNone(arayuz.PENCERE_BASLIK)
+        self.assertGreater(arayuz.PENCERE_GENISLIK, 0)
+
+    def test_web_ui_sunucu_baslat_kapat(self):
+        """sunucu_baslat() adres döndürmeli ve temiz kapanmalı."""
+        import web_ui
+        adres, sunucu = web_ui.sunucu_baslat(port=8890)
+        self.assertTrue(adres.startswith("http://"))
+        web_ui._temiz_kapat(sunucu)
+        self.assertTrue(True)
+
+
 if __name__ == "__main__":
     test_klasor = Path("test_raporlar")
     if test_klasor.exists():

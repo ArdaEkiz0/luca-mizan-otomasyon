@@ -108,10 +108,9 @@ echo(
 :env_hazir
 
 echo(
-echo [*] Uygulama baslatiliyor (web arayuz)...
-echo     Tarayicida otomatik acilacak. Acilmazsa sunucu adresini elle girin.
+echo [*] Uygulama baslatiliyor (masaustu pencere)...
 echo(
-call venv\Scripts\python.exe web_ui.py
+call venv\Scripts\python.exe arayuz.py
 
 echo(
 echo ==========================================
