@@ -593,22 +593,18 @@ class LucaGUI(ctk.CTk):
         """Kullanıcı sadece 8 rakam yazar; noktalar otomatik eklenir.
 
         Örn: '01012026' yazarken ekranda '01.01.2026' görünür.
-        Son değer yine düz rakam olarak saklanır (GGAAYYYY).
         """
         for entry in (self.baslangic_entry, self.bitis_entry):
             try:
                 rakamlar = "".join(ch for ch in entry.get() if ch.isdigit())[:8]
-                if rakamlar:
-                    parcalar = []
-                    if len(rakamlar) >= 2:
-                        parcalar.append(rakamlar[0:2])
-                    if len(rakamlar) >= 4:
-                        parcalar.append(rakamlar[2:4])
-                    if len(rakamlar) > 4:
-                        parcalar.append(rakamlar[4:8])
-                    yeni = ".".join(parcalar)
-                else:
-                    yeni = ""
+                parcalar = []
+                if len(rakamlar) >= 1:
+                    parcalar.append(rakamlar[0:2])
+                if len(rakamlar) >= 3:
+                    parcalar.append(rakamlar[2:4])
+                if len(rakamlar) >= 5:
+                    parcalar.append(rakamlar[4:8])
+                yeni = ".".join(parcalar)
                 if entry.get() != yeni:
                     imlec = len(yeni)
                     entry.delete(0, "end")
