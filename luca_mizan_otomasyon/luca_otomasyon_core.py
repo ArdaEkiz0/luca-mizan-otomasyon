@@ -1026,73 +1026,80 @@ class LucaOtomasyonCore:
 
         self.dashboard.wait_for_timeout(1000)
 
+    def _filtreleri_uygula(self, log: LogFn = _sessiz_log) -> None:
+        """Müşteri listesi sayfasında Yıl/Sınıf filtrelerini uygula."""
+        log(f"  Filtre uygulanıyor: Yıl={self._son_yil}, Sınıf={SINIF_ETIKETLERI.get(self._son_sinif, self._son_sinif)}")
+        try:
+            # Filtre butonunu tıkla, Yıl seç
+            self._rol_buton_tikla(self.liste_frame, "Filtre", log)
+            self.liste_frame.wait_for_selector("#YIL", state="visible", timeout=10000)
+            self.liste_frame.locator("#YIL").select_option(self._son_yil)
+            # Yıl seçimi sayfayı yeniden yükler, frame'i yeniden bul
+            self.liste_frame.wait_for_load_state("domcontentloaded")
+            self.liste_frame.wait_for_timeout(500)
+            self.liste_frame = self._frame_bul(self.dashboard, "#YIL")
+            # Sınıf seç
+            self._rol_buton_tikla(self.liste_frame, "Filtre", log)
+            self.liste_frame.wait_for_selector("#SINIF", state="visible", timeout=10000)
+            self.liste_frame.locator("#SINIF").select_option(self._son_sinif)
+            # Ara
+            self._rol_buton_tikla(self.liste_frame, "Ara", log)
+            self.liste_frame.wait_for_timeout(1500)
+            # Satırların yüklenmesini bekle
+            self.liste_frame.wait_for_selector("table.data-table tr.satir", timeout=15000)
+            log("  Filtre uygulandı, tablo yüklendi.")
+        except Exception as e:
+            log(f"  UYARI: Filtre uygulanırken hata — {e}. Tablo filtresiz yüklenebilir.")
+
     def musteri_kartina_don(self, log: LogFn = _sessiz_log) -> None:
-        """Müşteri listesine geri dön — toplu rapor akışı için gereklidir."""
+        """Müşteri listesine geri dön — toplu rapor akışı için gereklidir.
+
+        ÖNEMLİ: Döndükten sonra filtreleri (Yıl/Sınıf) yeniden uygular
+        çünkü sayfa yeniden yüklendiğinde filtre kaybolur.
+        """
         if self.dashboard is None:
             raise RuntimeError("Önce baslat_ve_filtrele() çağrılmalı.")
         log("Müşteri listesine geri dönülüyor...")
 
-        # ÖNCELİK: "Detay" müşteri panelini YENİ bir sekmede açtıysa (bkz.
-        # musteri_sec), self.dashboard artık o yeni sekmedir ve onun
-        # tarayıcı geçmişinde müşteri listesi sayfası HİÇ yok — go_back()
-        # bu durumda hiçbir işe yaramaz/hata verir. Bu yüzden, sakladığımız
-        # orijinal müşteri listesi sayfası (_musteri_listesi_sayfasi) hâlâ
-        # açıksa, doğrudan ona geri dönüyoruz.
-        if (
-            self._musteri_listesi_sayfasi is not None
-            and self._musteri_listesi_sayfasi != self.dashboard
-        ):
-            try:
-                if not self._musteri_listesi_sayfasi.is_closed():
-                    self.dashboard = self._musteri_listesi_sayfasi
-                    self.dashboard.bring_to_front()
-                    self.dashboard.wait_for_timeout(1000)
-                    self.liste_frame = self._frame_bul(self.dashboard, "#YIL")
-                    # Tablonun hazır olmasını bekle
-                    self.liste_frame.wait_for_selector("table.data-table", timeout=15000)
-                    # Satırların yüklenmesini bekle
-                    self.liste_frame.wait_for_selector("table.data-table tr.satir", timeout=15000)
-                    log("  Müşteri listesine geri dönüldü.")
-                    return
-            except Exception:
-                log("  Saklanan müşteri listesi sekmesine dönülemedi, alternatif yöntem deneniyor...")
+        # EN GÜVENİLİR YOL: Doğrudan URL ile müşteri listesine git,
+        # sonra filtreleri yeniden uygula. go_back() ve sekme izleme
+        # çok hata veriyor, doğrudan URL en stabil yöntem.
+        from time import time as _zaman
+        musteri_listesi_url = (
+            "https://auygs.luca.com.tr/Luca/listSirketAction.do"
+            f"?time={int(_zaman() * 1000)}"
+        )
 
-        # go_back() ile dene
+        # Önce mevcut sayfada frames.contains kontrolü yap
+        navigasyon_basrildi = False
         try:
-            self.dashboard.go_back()
-            self.dashboard.wait_for_load_state("domcontentloaded")
-            self.dashboard.wait_for_timeout(2000)
-            self.liste_frame = self._frame_bul(self.dashboard, "#YIL")
-            self.liste_frame.wait_for_selector("table.data-table tr.satir", timeout=15000)
-            log("  Geri gidilerek müşteri listesine dönüldü.")
-            return
+            for cv in self.dashboard.frames:
+                try:
+                    if "musteriBilgileri" in cv.url or "rapor" in cv.url.lower():
+                        cv.goto(musteri_listesi_url, wait_until="domcontentloaded", timeout=30000)
+                        cv.wait_for_timeout(2000)
+                        navigasyon_basrildi = True
+                        log("  Doğrudan URL ile müşteri listesine dönüldü (frame).")
+                        break
+                except Exception:
+                    continue
         except Exception:
             pass
 
-        # YOL B: Doğrudan URL ile müşteri listesine geri dön — go_back()
-        # başarısız olursa (ör. sayfa yapısı değiştiyse) doğrudan URL'ye
-        # giderek listeyi yeniden yükler.
-        try:
-            from time import time as _zaman
-            musteri_listesi_url = (
-                "https://auygs.luca.com.tr/Luca/listSirketAction.do"
-                f"?time={int(_zaman() * 1000)}"
-            )
-            for cv in self.dashboard.frames:
-                if "musteriBilgileri" in cv.url or "rapor" in cv.url.lower():
-                    cv.goto(musteri_listesi_url, wait_until="domcontentloaded", timeout=30000)
-                    cv.wait_for_timeout(2000)
-                    self.liste_frame = self._frame_bul(self.dashboard, "#YIL")
-                    self.liste_frame.wait_for_selector("table.data-table tr.satir", timeout=15000)
-                    log(f"  Doğrudan URL ile müşteri listesine dönüldü.")
-                    return
-            self.dashboard.goto(musteri_listesi_url, wait_until="domcontentloaded", timeout=30000)
-            self.dashboard.wait_for_timeout(2000)
-            self.liste_frame = self._frame_bul(self.dashboard, "#YIL")
-            self.liste_frame.wait_for_selector("table.data-table tr.satir", timeout=15000)
-            log(f"  Doğrudan URL ile müşteri listesine dönüldü.")
-        except Exception as e:
-            raise RuntimeError(f"Müşteri listesine ne go_back ne de doğrudan URL ile dönülemedi: {e}")
+        if not navigasyon_basrildi:
+            try:
+                self.dashboard.goto(musteri_listesi_url, wait_until="domcontentloaded", timeout=30000)
+                self.dashboard.wait_for_timeout(2000)
+                log("  Doğrudan URL ile müşteri listesine dönüldü (sayfa).")
+            except Exception as e:
+                raise RuntimeError(f"Müşteri listesine dönülemedi: {e}")
+
+        # Frame'i bul ve tabloyu bekle
+        self.liste_frame = self._frame_bul(self.dashboard, "#YIL")
+        self.liste_frame.wait_for_selector("table.data-table", timeout=15000)
+
+        # Filtreleri yeniden uygula (sayfa yeniden yüklendiğinde filtreler kaybolur)
+        self._filtreleri_uygula(log)
 
     def mizan_raporu_olustur(self, kisa_ad: str, log: LogFn = _sessiz_log) -> Optional[Path]:
         if self.dashboard is None:
@@ -1222,9 +1229,20 @@ class LucaOtomasyonCore:
                 try:
                     self.musteri_kartina_don(log=log)
                 except Exception as e:
-                    log(f"  UYARI: Listeye geri dönülemedi — {e}. Yeniden deneniyor...")
+                    log(f"  UYARI: Listeye geri dönülemedi — {e}. URL ile yeniden deneniyor...")
                     try:
-                        self.musteri_kartina_don(log=log)
+                        # Zorla doğrudan URL ile dön
+                        from time import time as _zaman
+                        url = (
+                            "https://auygs.luca.com.tr/Luca/listSirketAction.do"
+                            f"?time={int(_zaman() * 1000)}"
+                        )
+                        self.dashboard.goto(url, wait_until="domcontentloaded", timeout=30000)
+                        self.dashboard.wait_for_timeout(2000)
+                        self.liste_frame = self._frame_bul(self.dashboard, "#YIL")
+                        self.liste_frame.wait_for_selector("table.data-table", timeout=15000)
+                        self._filtreleri_uygula(log)
+                        log("  Kurtarma başarılı, listeye dönüldü.")
                     except Exception:
                         log(f"  HATA: {kisa_ad} sonrası listeye dönülemedi, kalanlar atlanıyor.")
                         break
