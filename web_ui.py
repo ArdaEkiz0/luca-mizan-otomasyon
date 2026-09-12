@@ -306,6 +306,8 @@ class ApiHandler(BaseHTTPRequestHandler):
                 DURUM.raporlar = []
                 DURUM._rapor_dosyalari = []
             self._json({"ok": True})
+        elif yol == "/api/kontrol":
+            self._kontrol_raporlari()
         else:
             self._json({"hata": "Bilinmeyen istek"}, 404)
 
@@ -522,6 +524,60 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "hata": str(e)})
                 return
         self._json({"ok": True})
+
+    def _kontrol_raporlari(self) -> None:
+        """Indirilen tum mizanlari kontrol eder, sonuclari JSON doner."""
+        try:
+            from mizan_kontrol import mizan_kontrol, kontrol_raporu_yaz
+        except Exception as e:
+            self._json({"ok": False, "hata": f"mizan_kontrol yuklenemedi: {e}"})
+            return
+
+        with DURUM.kilit:
+            dosyalar = [Path(p) for p in DURUM._rapor_dosyalari if "_KONTROL" not in Path(p).name]
+            # Dosyalar listeye henuz eklenmemisse raporlar/ klasorunu tara
+            if not dosyalar:
+                klasor = BASE_DIR / "raporlar"
+                if klasor.exists():
+                    dosyalar = sorted(
+                        f for f in klasor.glob("*.xlsx")
+                        if "_KONTROL" not in f.name
+                    )
+
+        sonuclar = []
+        for f in dosyalar:
+            try:
+                s = mizan_kontrol(f)
+                # Kontrol raporunu da uret (yanina _KONTROL eklenmis)
+                kontrol_dosya = f.with_name(f.stem + "_KONTROL.xlsx")
+                try:
+                    kontrol_raporu_yaz(s, kontrol_dosya)
+                except Exception:
+                    kontrol_dosya = None
+                sonuclar.append({
+                    "dosya": f.name,
+                    "firma": s.firma_adi,
+                    "donem": s.donem,
+                    "satir_sayisi": s.satir_sayisi,
+                    "durum": s.durum,
+                    "ozet": s.ozet,
+                    "hata_sayisi": s.hata_sayisi,
+                    "uyari_sayisi": s.uyari_sayisi,
+                    "kontrol_dosyasi": str(kontrol_dosya) if kontrol_dosya else None,
+                    "ihlaller": [
+                        {"kural": i.kural_id, "hesap": i.hesap_kodu,
+                         "ad": i.hesap_adi, "seviye": i.seviye,
+                         "mesaj": i.mesaj}
+                        for i in s.ihlaller
+                    ],
+                })
+            except Exception as e:
+                sonuclar.append({
+                    "dosya": f.name, "durum": "HATA",
+                    "ozet": f"Okunamadi: {e}", "ihlaller": [],
+                })
+
+        self._json({"ok": True, "sonuclar": sonuclar})
 
     def log_message(self, format, *args) -> None:
         pass

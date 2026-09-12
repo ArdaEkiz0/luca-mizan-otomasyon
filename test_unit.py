@@ -1527,6 +1527,89 @@ class TestArayuzModulu(unittest.TestCase):
         self.assertEqual(web_ui._sinif_kod_bul(""), "")
 
 
+
+
+class TestMizanKontrol(unittest.TestCase):
+
+    def _yaz_mizan(self, satirlar: list) -> Path:
+        """Verilen satirlari iceren gecici bir mizan excel'i olusturur."""
+        import openpyxl
+        from openpyxl import Workbook
+
+        tmpdir = Path(tempfile.mkdtemp())
+        dosya = tmpdir / "mizan.xlsx"
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["MIZAN"])
+        ws.append(["TEST FIRMA"])
+        ws.append(["DONEM :", "01/01/2026-31/12/2026"])
+        ws.append(["TARIH ARALIGI :", "01/01/2026-31/12/2026"])
+        ws.append([])
+        ws.append(["HESAP KODU", "HESAP ADI", "BORC", "ALACAK", "BORC BAKIYESI", "ALACAK BAKIYESI"])
+        for s in satirlar:
+            ws.append(s)
+        wb.save(dosya)
+        return dosya
+
+    def test_temiz_mizan_ok(self):
+        import mizan_kontrol
+        dosya = self._yaz_mizan([
+            ["100", "KASA", 100.0, 0, 100.0, ""],
+            ["101", "ALINAN CEKLER", 50.0, 0, 50.0, ""],
+            ["191", "DEVREDEN KDV", 0, 0, "", ""],
+        ])
+        s = mizan_kontrol.mizan_kontrol(dosya)
+        self.assertEqual(s.durum, "OK", s.ozet)
+
+    def test_100_alacak_bakiyesi_hata(self):
+        import mizan_kontrol
+        dosya = self._yaz_mizan([
+            ["100", "KASA", 0, 0, "", 5000.0],
+        ])
+        s = mizan_kontrol.mizan_kontrol(dosya)
+        self.assertEqual(s.durum, "HATA")
+        self.assertTrue(any(i.kural_id == "K1" for i in s.ihlaller))
+
+    def test_100_borc_limit_hata(self):
+        import mizan_kontrol
+        dosya = self._yaz_mizan([
+            ["100", "KASA", 4000000.0, 0, 4000000.0, ""],
+        ])
+        s = mizan_kontrol.mizan_kontrol(dosya)
+        self.assertEqual(s.durum, "HATA")
+        self.assertTrue(any(i.kural_id == "K2" for i in s.ihlaller))
+
+    def test_600_borc_hata(self):
+        import mizan_kontrol
+        dosya = self._yaz_mizan([
+            ["600", "YURTICI SATISLAR", 100.0, 0, 100.0, ""],
+            ["600.01", "ALT", 50.0, 0, 50.0, ""],
+        ])
+        s = mizan_kontrol.mizan_kontrol(dosya)
+        self.assertEqual(s.durum, "HATA")
+        self.assertTrue(any(i.kural_id == "K10" for i in s.ihlaller))
+
+    def test_191_bakiye_hata(self):
+        import mizan_kontrol
+        dosya = self._yaz_mizan([
+            ["191", "DEVREDEN KDV", 0, 0, 5000.0, ""],
+        ])
+        s = mizan_kontrol.mizan_kontrol(dosya)
+        self.assertEqual(s.durum, "HATA")
+        self.assertTrue(any(i.kural_id == "K12" for i in s.ihlaller))
+
+    def test_kontrol_raporu_yaz(self):
+        import mizan_kontrol
+        dosya = self._yaz_mizan([
+            ["100", "KASA", 100.0, 0, 100.0, ""],
+        ])
+        s = mizan_kontrol.mizan_kontrol(dosya)
+        hedef = Path(tempfile.mkdtemp()) / "kontrol.xlsx"
+        mizan_kontrol.kontrol_raporu_yaz(s, hedef)
+        self.assertTrue(hedef.exists())
+        self.assertGreater(hedef.stat().st_size, 0)
+
+
 if __name__ == "__main__":
     test_klasor = Path("test_raporlar")
     if test_klasor.exists():

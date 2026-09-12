@@ -372,3 +372,68 @@ async function durumPoll() {
 /* ---------- Giriş ---------- */
 secenekDoldur();
 durumPoll();
+
+/* ---------- Mizan kontrol ---------- */
+function mizanKontrol() {
+  const liste = sec("kontrolListe");
+  liste.innerHTML = '<div class="bos-liste">Kontrol ediliyor...</div>';
+  apiGonder("/api/kontrol", {}).then(r => {
+    if (!r.ok) {
+      liste.innerHTML = '<div class="bos-liste">Kontrol hatasi: ' + muhafaza(r.hata || "bilinmiyor") + '</div>';
+      return;
+    }
+    const sonuclar = r.sonuclar || [];
+    if (sonuclar.length === 0) {
+      liste.innerHTML = '<div class="bos-liste">Kontrol edilecek rapor yok.</div>';
+      return;
+    }
+    liste.innerHTML = "";
+    sonuclar.forEach(s => {
+      const kayit = document.createElement("div");
+      kayit.className = "kontrol-kayit";
+      const rozet = s.durum === "OK"
+        ? '<span class="durum-rozet ok">OK</span>'
+        : s.durum === "UYARI"
+          ? '<span class="durum-rozet uyari">UYARI</span>'
+          : '<span class="durum-rozet hata">HATA</span>';
+      kayit.innerHTML =
+        rozet +
+        '<span class="kontrol-ad">' + muhafaza(s.firma || s.dosya) + '</span>' +
+        '<span class="kontrol-ozet">' + muhafaza(s.ozet) + '</span>';
+
+      const ayrinti = s.ihlaller || [];
+      if (s.durum === "OK") {
+        kayit.classList.add("ok");
+      } else {
+        kayit.classList.add("hata");
+      }
+
+      kayit.addEventListener("click", () => {
+        if (ayrinti.length === 0) return;
+        const mevcut = kayit.querySelector(".kontrol-detay");
+        if (mevcut) { mevcut.remove(); return; }
+        const detay = document.createElement("div");
+        detay.className = "kontrol-detay";
+        ayrinti.forEach(i => {
+          const sat = document.createElement("div");
+          sat.className = "kontrol-detay-" + (i.seviye === "HATA" ? "hata" : "uyari");
+          sat.textContent = "[" + i.kural + "] Hesap " + i.hesap + " " + i.ad + " -> " + i.mesaj;
+          detay.appendChild(sat);
+        });
+        kayit.appendChild(detay);
+      });
+
+      liste.appendChild(kayit);
+    });
+
+    // Kontrol raporu dosyalarini gorunur rapor listesine ekle
+    sonuclar.forEach(s => {
+      if (s.kontrol_dosyasi) {
+        // Goster butonu: en azindan log
+        logEkle("bilgi", "Kontrol raporu: " + s.kontrol_dosyasi);
+      }
+    });
+  }).catch(e => {
+    liste.innerHTML = '<div class="bos-liste">Kontrol yapilamadi: ' + muhafaza(String(e)) + '</div>';
+  });
+}
