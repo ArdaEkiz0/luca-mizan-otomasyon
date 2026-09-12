@@ -3,3 +3,4 @@ python-dotenv>=1.0
 customtkinter>=5.2
 pywebview>=5.0
 pillow>=10.0
+pywin32>=300
