@@ -1023,29 +1023,69 @@ class LucaOtomasyonCore:
         onceki_sayfa_sayisi = len(self._context.pages)
         onceki_url = self.dashboard.url
 
-        # --- YÖNTEM 1: Satır içindeki müşteri adına (link) tıkla ---
-        # Luca tablosunda müşteri adı genelde tıklanabilir bir linktir.
-        # Bu link müşteri sayfasını AYNI sekmede açar ve otomatik olarak
-        # doğru müşteri session'a yerleşir.
+        # --- TEŞHIS: Satırın HTML yapısını logla (ilk çalıştırmada) ---
+        try:
+            satir_html = satir.evaluate(
+                "el => el.outerHTML.slice(0, 500)"
+            )
+            log(f"  Satır HTML (ilk 500): {satir_html}")
+        except Exception:
+            pass
+
+        # --- YÖNTEM 1: Satır içindeki tüm tıklanabilir elemanları bul ve tıkla ---
         tiklandi = False
         try:
-            # Tablodaki 2. sütun (index=1) müşteri kısa adını içerir
-            ad_hucresi = satir.locator("td").nth(1)
-            # İçinde <a> varsa ona tıkla, yoksa hücrenin kendisine tıkla
-            ad_link = ad_hucresi.locator("a")
+            # satir içindeki <a> tag'lerini kontrol et
+            linkler = satir.locator("a")
+            link_sayisi = linkler.count()
+            log(f"  Satırda {link_sayisi} adet <a> bulundu.")
+            for li in range(link_sayisi):
+                try:
+                    link = linkler.nth(li)
+                    link_metin = link.inner_text().strip()
+                    link_href = link.get_attribute("href") or ""
+                    link_onclick = link.get_attribute("onclick") or ""
+                    log(f"    Link[{li}]: metin='{link_metin}', href='{link_href[:60]}', onclick='{link_onclick[:60]}'")
+                except Exception:
+                    pass
+
+            # müşteri adına en yakın linki tıkla
+            ad_link = satir.locator(f'a:has-text("{kisa_ad}")')
             if ad_link.count() > 0:
                 ad_link.first.click(timeout=5000)
-                log(f"  '{kisa_ad}' adına link tıklandı ( Hücre-2 > <a>).")
+                log(f"  '{kisa_ad}' adına link tıklandı.")
                 tiklandi = True
-            else:
-                # Hücrede link yoksa, hücrenin kendisi tıklanabilir olabilir
-                ad_hucresi.click(timeout=5000)
-                log(f"  '{kisa_ad}' hücre tıklandı ( Hücre-2).")
+            elif link_sayisi > 0:
+                # İlk linki tıkla (muhtemelen müşteri detay linki)
+                linkler.first.click(timeout=5000)
+                log(f"  Satırdaki ilk link tıklandı.")
                 tiklandi = True
         except Exception as e:
-            log(f"  Ad linki tıklanamadı: {str(e)[:100]}")
+            log(f"  Link tıklanamadı: {str(e)[:120]}")
 
-        # --- YÖNTEM 2: Satır içinde "Detay" düğmesine tıkla ---
+        # --- YÖNTEM 2: Satır içinde onclick'i olan elemanları bul ---
+        if not tiklandi:
+            try:
+                onclick_lu = satir.locator("[onclick]")
+                onclick_sayisi = onclick_lu.count()
+                log(f"  Satırda {onclick_sayisi} adet [onclick] elemanı bulundu.")
+                for oi in range(min(onclick_sayisi, 5)):
+                    try:
+                        el = onclick_lu.nth(oi)
+                        oc = el.get_attribute("onclick") or ""
+                        tag = el.evaluate("el => el.tagName.toLowerCase()")
+                        metin = el.inner_text().strip()[:30]
+                        log(f"    Onclick[{oi}]: tag={tag}, metin='{metin}', onclick='{oc[:80]}'")
+                    except Exception:
+                        pass
+                if onclick_sayisi > 0:
+                    onclick_lu.first.click(timeout=5000)
+                    log(f"  İlk [onclick] elemanı tıklandı.")
+                    tiklandi = True
+            except Exception as e:
+                log(f"  Onclick tıklanamadı: {str(e)[:120]}")
+
+        # --- YÖNTEM 3: Satır içinde "Detay" düğmesine tıkla ---
         if not tiklandi:
             try:
                 satir_detay = satir.locator(
@@ -1058,11 +1098,14 @@ class LucaOtomasyonCore:
                     log(f"  '{kisa_ad}' satırındaki 'Detay' tıklandı.")
                     tiklandi = True
             except Exception as e:
-                log(f"  Satır içi 'Detay' tıklanamadı: {str(e)[:100]}")
+                log(f"  Satır içi 'Detay' tıklanamadı: {str(e)[:120]}")
 
-        # --- YÖNTEM 3: JS ile satır onClick tetikle ---
+        # --- YÖNTEM 4: JS ile satır onClick tetikle ---
         if not tiklandi:
             try:
+                satir_index = eslesme.first.evaluate(
+                    "el => Array.from(el.parentNode.children).indexOf(el)"
+                )
                 self.liste_frame.evaluate(
                     """(satirIndex) => {
                         const satirlar = document.querySelectorAll('table.data-table tr.satir');
@@ -1072,21 +1115,21 @@ class LucaOtomasyonCore:
                         }
                         return false;
                     }""",
-                    eslesme.first.evaluate("el => Array.from(el.parentNode.children).indexOf(el)"),
+                    satir_index,
                 )
                 log(f"  '{kisa_ad}' JS ile satır tıklandı.")
                 tiklandi = True
             except Exception as e:
-                log(f"  JS satır tıklama başarısız: {str(e)[:100]}")
+                log(f"  JS satır tıklama başarısız: {str(e)[:120]}")
 
-        # --- YÖNTEM 4: Çerçeve genelinde "Detay" ara (son çare) ---
+        # --- YÖNTEM 5: Çerçeve genelinde "Detay" ara (son çare) ---
         if not tiklandi:
             log("  UYARI: Tüm satır içi yöntemler başarısız, çerçeve genelinde aranıyor...")
             try:
                 self._rol_buton_tikla(self.liste_frame, "Detay", log)
                 tiklandi = True
             except Exception as e:
-                log(f"  Çerçeve genelinde 'Detay' de bulunamadı: {str(e)[:100]}")
+                log(f"  Çerçeve genelinde 'Detay' de bulunamadı: {str(e)[:120]}")
 
         # --- Sayfa değişikliğini bekle ---
         for _ in range(30):  # ~15 saniye
@@ -1117,7 +1160,6 @@ class LucaOtomasyonCore:
             pass
 
         if not musteri_bulundu:
-            # musteriBilgileri frame yoksa, sayfa içeriğinde müşteri adı ara
             try:
                 sayfa_icerigi = self.dashboard.content()
                 if kisa_ad.upper() in sayfa_icerigi.upper():
