@@ -23,16 +23,20 @@ if exist "venv\Scripts\python.exe" (
 REM --- Python bul ---
 set "PYEXE="
 
-where python >nul 2>nul
-if not errorlevel 1 (
-    set "PYEXE=python"
-    goto :python_bulundu
-)
-
-where py >nul 2>nul
+REM Oncelikle py launcher'i dene (guvenilir)
+py -3 --version >nul 2>nul
 if not errorlevel 1 (
     set "PYEXE=py -3"
     goto :python_bulundu
+)
+
+where python >nul 2>nul
+if not errorlevel 1 (
+    python --version >nul 2>nul
+    if not errorlevel 1 (
+        set "PYEXE=python"
+        goto :python_bulundu
+    )
 )
 
 echo [HATA] Python bulunamadi.
