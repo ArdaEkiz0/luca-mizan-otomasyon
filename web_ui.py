@@ -308,6 +308,14 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._json({"ok": True})
         elif yol == "/api/kontrol":
             self._kontrol_raporlari()
+        elif yol == "/api/kontrol/istatistik":
+            self._kontrol_istatistik()
+        elif yol == "/api/kontrol/export/json":
+            self._kontrol_export_json(veri)
+        elif yol == "/api/kontrol/export/csv":
+            self._kontrol_export_csv(veri)
+        elif yol == "/api/kontrol/export/pdf":
+            self._kontrol_export_pdf(veri)
         else:
             self._json({"hata": "Bilinmeyen istek"}, 404)
 
@@ -526,16 +534,15 @@ class ApiHandler(BaseHTTPRequestHandler):
         self._json({"ok": True})
 
     def _kontrol_raporlari(self) -> None:
-        """Indirilen tum mizanlari kontrol eder, sonuclari JSON doner."""
+        """İndirilen tüm mizanları kontrol eder, istatistiklerle sonucu JSON verir."""
         try:
-            from mizan_kontrol import mizan_kontrol, kontrol_raporu_yaz
+            from mizan_kontrol import mizan_kontrol, kontrol_raporu_yaz, MizanKontrolMotoru, kural_istatistikleri
         except Exception as e:
-            self._json({"ok": False, "hata": f"mizan_kontrol yuklenemedi: {e}"})
+            self._json({"ok": False, "hata": f"mizan_kontrol yüklenemedi: {e}"})
             return
 
         with DURUM.kilit:
             dosyalar = [Path(p) for p in DURUM._rapor_dosyalari if "_KONTROL" not in Path(p).name]
-            # Dosyalar listeye henuz eklenmemisse raporlar/ klasorunu tara
             if not dosyalar:
                 klasor = BASE_DIR / "raporlar"
                 if klasor.exists():
@@ -545,15 +552,27 @@ class ApiHandler(BaseHTTPRequestHandler):
                     )
 
         sonuclar = []
+        toplam_hata = 0
+        toplam_uyari = 0
+        toplam_ok = 0
+
         for f in dosyalar:
             try:
                 s = mizan_kontrol(f)
-                # Kontrol raporunu da uret (yanina _KONTROL eklenmis)
+
+                if s.durum == "OK":
+                    toplam_ok += 1
+                elif s.durum == "HATA":
+                    toplam_hata += 1
+                else:
+                    toplam_uyari += 1
+
                 kontrol_dosya = f.with_name(f.stem + "_KONTROL.xlsx")
                 try:
                     kontrol_raporu_yaz(s, kontrol_dosya)
                 except Exception:
                     kontrol_dosya = None
+
                 sonuclar.append({
                     "dosya": f.name,
                     "firma": s.firma_adi,
@@ -575,9 +594,150 @@ class ApiHandler(BaseHTTPRequestHandler):
                 sonuclar.append({
                     "dosya": f.name, "durum": "HATA",
                     "ozet": f"Okunamadi: {e}", "ihlaller": [],
+                    "hata_sayisi": 1, "uyari_sayisi": 0,
                 })
+                toplam_hata += 1
 
-        self._json({"ok": True, "sonuclar": sonuclar})
+        istatistik = kural_istatistikleri()
+        istatistik_sonuc = {}
+        for kid, ist in istatistik.items():
+            istatistik_sonuc[kid] = {
+                "toplam": ist.toplam, "hata": ist.hata, "uyari": ist.uyari,
+            }
+
+        self._json({
+            "ok": True,
+            "sonuclar": sonuclar,
+            "istatistik": {
+                "toplam": len(sonuclar),
+                "ok": toplam_ok,
+                "hata": toplam_hata,
+                "uyari": toplam_uyari,
+            },
+            "kural_istatistik": istatistik_sonuc,
+        })
+
+    def _kontrol_istatistik(self) -> None:
+        """Kural istatistiklerini JSON olarak verir."""
+        try:
+            from mizan_kontrol import kural_istatistikleri
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+            return
+
+        istatistik = kural_istatistikleri()
+        sonuc = {}
+        for kid, ist in istatistik.items():
+            sonuc[kid] = {
+                "kural_id": kid,
+                "toplam": ist.toplam,
+                "hata": ist.hata,
+                "uyari": ist.uyari,
+                "hesaplar": ist.hesaplar,
+            }
+        self._json({"ok": True, "istatistik": sonuc})
+
+    def _kontrol_export_json(self, veri: dict) -> None:
+        """Kontrol sonuclarini JSON olarak indir."""
+        try:
+            from mizan_kontrol import mizan_kontrol, kontrol_json_yaz
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+            return
+        try:
+            dosya_adi = str(veri.get("dosya", ""))
+            if not dosya_adi:
+                self._json({"ok": False, "hata": "Dosya belirtilmedi"})
+                return
+            rapor_klasor = BASE_DIR / "raporlar"
+            dosya = None
+            for f in sorted(rapor_klasor.glob("*.xlsx")):
+                if f.name == dosya_adi and "_KONTROL" not in f.name:
+                    dosya = f
+                    break
+            if dosya is None:
+                self._json({"ok": False, "hata": "Dosya bulunamadi"})
+                return
+            s = mizan_kontrol(dosya)
+            hedef = dosya.with_suffix(".json")
+            kontrol_json_yaz(s, hedef)
+            govde = hedef.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Disposition", f'attachment; filename="{hedef.name}"')
+            self.send_header("Content-Length", str(len(govde)))
+            self.end_headers()
+            self.wfile.write(govde)
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+
+    def _kontrol_export_csv(self, veri: dict) -> None:
+        """Kontrol sonuclarini CSV olarak indir."""
+        try:
+            from mizan_kontrol import mizan_kontrol, kontrol_csv_yaz
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+            return
+        try:
+            dosya_adi = str(veri.get("dosya", ""))
+            if not dosya_adi:
+                self._json({"ok": False, "hata": "Dosya belirtilmedi"})
+                return
+            rapor_klasor = BASE_DIR / "raporlar"
+            dosya = None
+            for f in sorted(rapor_klasor.glob("*.xlsx")):
+                if f.name == dosya_adi and "_KONTROL" not in f.name:
+                    dosya = f
+                    break
+            if dosya is None:
+                self._json({"ok": False, "hata": "Dosya bulunamadi"})
+                return
+            s = mizan_kontrol(dosya)
+            hedef = dosya.with_suffix(".csv")
+            kontrol_csv_yaz(s, hedef)
+            govde = hedef.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{hedef.name}"')
+            self.send_header("Content-Length", str(len(govde)))
+            self.end_headers()
+            self.wfile.write(govde)
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+
+    def _kontrol_export_pdf(self, veri: dict) -> None:
+        """Kontrol sonuclarini PDF olarak indir."""
+        try:
+            from mizan_kontrol import mizan_kontrol, kontrol_pdf_yaz
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+            return
+        try:
+            dosya_adi = str(veri.get("dosya", ""))
+            if not dosya_adi:
+                self._json({"ok": False, "hata": "Dosya belirtilmedi"})
+                return
+            rapor_klasor = BASE_DIR / "raporlar"
+            dosya = None
+            for f in sorted(rapor_klasor.glob("*.xlsx")):
+                if f.name == dosya_adi and "_KONTROL" not in f.name:
+                    dosya = f
+                    break
+            if dosya is None:
+                self._json({"ok": False, "hata": "Dosya bulunamadi"})
+                return
+            s = mizan_kontrol(dosya)
+            hedef = dosya.with_suffix("_KONTROL.pdf")
+            kontrol_pdf_yaz(s, hedef)
+            govde = hedef.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/pdf")
+            self.send_header("Content-Disposition", f'attachment; filename="{hedef.name}"')
+            self.send_header("Content-Length", str(len(govde)))
+            self.end_headers()
+            self.wfile.write(govde)
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
 
     def log_message(self, format, *args) -> None:
         pass

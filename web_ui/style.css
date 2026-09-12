@@ -343,6 +343,37 @@ body {
 .kontrol-detay-hata { color: var(--kirmizi); font-size: 12px; padding: 2px 0; }
 .kontrol-detay-uyari { color: #facc15; font-size: 12px; padding: 2px 0; }
 
+/* Kontrol İstatistik */
+.kontrol-istatistik {
+  display: flex; gap: 10px; padding: 10px 0;
+  flex-wrap: wrap; align-items: center;
+}
+.ist-toplam, .ist-ok, .ist-hata, .ist-uyari {
+  font-size: 12px; font-weight: 700;
+  padding: 4px 12px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+}
+.ist-toplam span { color: var(--metin); }
+.ist-ok span { color: var(--yesil); }
+.ist-hata span { color: var(--kirmizi); }
+.ist-uyari span { color: #facc15; }
+
+/* Kontrol Filtre */
+.kontrol-filtre {
+  display: flex; gap: 6px; padding: 6px 0 10px;
+  flex-wrap: wrap;
+}
+.btn-filtre {
+  font-size: 12px; padding: 5px 12px; border-radius: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  color: var(--metin-soluk); cursor: pointer; transition: all 0.18s;
+}
+.btn-filtre:hover { background: rgba(124,58,237,0.15); color: var(--metin); }
+.btn-filtre.aktif {
+  background: var(--mor); color: #fff; border-color: var(--mor);
+}
+
 /* ---------- Log ---------- */
 .blok-log { display: flex; flex-direction: column; }
 .log-konsol {

@@ -4,3 +4,4 @@ customtkinter>=5.2
 pywebview>=5.0
 pillow>=10.0
 pywin32>=300
+fpdf2>=2.7

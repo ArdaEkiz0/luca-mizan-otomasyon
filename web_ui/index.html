@@ -124,6 +124,23 @@
         <button class="btn btn-mor btn-kucuk" onclick="mizanKontrol()">Raporlari Kontrol Et</button>
       </div>
     </div>
+    <div class="kontrol-istatistik" id="kontrolIstatistik" style="display:none;">
+      <div class="ist-toplam"><span id="istToplam">0</span> Dosya</div>
+      <div class="ist-ok"><span id="istOk">0</span> OK</div>
+      <div class="ist-hata"><span id="istHata">0</span> HATA</div>
+      <div class="ist-uyari"><span id="istUyari">0</span> UYARI</div>
+    </div>
+    <div class="kontrol-filtre" id="kontrolFiltre" style="display:none;">
+      <button class="btn btn-kucuk btn-filtre aktif" onclick="kontrolFiltrele('tum')" data-filtre="tum">Tümü</button>
+      <button class="btn btn-kucuk btn-filtre" onclick="kontrolFiltrele('OK')" data-filtre="OK">OK</button>
+      <button class="btn btn-kucuk btn-filtre" onclick="kontrolFiltrele('HATA')" data-filtre="HATA">HATA</button>
+      <button class="btn btn-kucuk btn-filtre" onclick="kontrolFiltrele('UYARI')" data-filtre="UYARI">UYARI</button>
+    </div>
+    <div class="kontrol-export" id="kontrolExport" style="display:none;">
+      <button class="btn btn-yesil btn-kucuk" onclick="kontrolExportJson()">&#11015; JSON İndir</button>
+      <button class="btn btn-turkuaz btn-kucuk" onclick="kontrolExportCsv()">&#11015; CSV İndir</button>
+      <button class="btn btn-kirmizi btn-kucuk" onclick="kontrolExportPdf()">&#11015; PDF İndir</button>
+    </div>
     <div class="kontrol-liste" id="kontrolListe">
       <div class="bos-liste">Mizan raporlari indirildikten sonra "Raporlari Kontrol Et" butonuna basin.</div>
     </div>

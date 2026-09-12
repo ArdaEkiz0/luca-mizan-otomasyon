@@ -373,67 +373,159 @@ async function durumPoll() {
 secenekDoldur();
 durumPoll();
 
+let kontrolSonuclari = [];
+let kontrolFiltreli = "tum";
+
 /* ---------- Mizan kontrol ---------- */
 function mizanKontrol() {
   const liste = sec("kontrolListe");
   liste.innerHTML = '<div class="bos-liste">Kontrol ediliyor...</div>';
+  kontrolSonuclari = [];
+  kontrolFiltreli = "tum";
+  sec("kontrolIstatistik").style.display = "none";
+  sec("kontrolFiltre").style.display = "none";
   apiGonder("/api/kontrol", {}).then(r => {
     if (!r.ok) {
       liste.innerHTML = '<div class="bos-liste">Kontrol hatasi: ' + muhafaza(r.hata || "bilinmiyor") + '</div>';
       return;
     }
     const sonuclar = r.sonuclar || [];
+    kontrolSonuclari = sonuclar;
     if (sonuclar.length === 0) {
       liste.innerHTML = '<div class="bos-liste">Kontrol edilecek rapor yok.</div>';
       return;
     }
-    liste.innerHTML = "";
-    sonuclar.forEach(s => {
-      const kayit = document.createElement("div");
-      kayit.className = "kontrol-kayit";
-      const rozet = s.durum === "OK"
-        ? '<span class="durum-rozet ok">OK</span>'
-        : s.durum === "UYARI"
-          ? '<span class="durum-rozet uyari">UYARI</span>'
-          : '<span class="durum-rozet hata">HATA</span>';
-      kayit.innerHTML =
-        rozet +
-        '<span class="kontrol-ad">' + muhafaza(s.firma || s.dosya) + '</span>' +
-        '<span class="kontrol-ozet">' + muhafaza(s.ozet) + '</span>';
 
-      const ayrinti = s.ihlaller || [];
-      if (s.durum === "OK") {
-        kayit.classList.add("ok");
-      } else {
-        kayit.classList.add("hata");
-      }
+    // Istatistikleri goster
+    const ist = r.istatistik || {};
+    sec("istToplam").textContent = ist.toplam || 0;
+    sec("istOk").textContent = ist.ok || 0;
+    sec("istHata").textContent = ist.hata || 0;
+    sec("istUyari").textContent = ist.uyari || 0;
+    sec("kontrolIstatistik").style.display = "flex";
+    sec("kontrolFiltre").style.display = "flex";
 
-      kayit.addEventListener("click", () => {
-        if (ayrinti.length === 0) return;
-        const mevcut = kayit.querySelector(".kontrol-detay");
-        if (mevcut) { mevcut.remove(); return; }
-        const detay = document.createElement("div");
-        detay.className = "kontrol-detay";
-        ayrinti.forEach(i => {
-          const sat = document.createElement("div");
-          sat.className = "kontrol-detay-" + (i.seviye === "HATA" ? "hata" : "uyari");
-          sat.textContent = "[" + i.kural + "] Hesap " + i.hesap + " " + i.ad + " -> " + i.mesaj;
-          detay.appendChild(sat);
-        });
-        kayit.appendChild(detay);
-      });
-
-      liste.appendChild(kayit);
+    // Filtre butonlarini guncelle
+    document.querySelectorAll(".btn-filtre").forEach(btn => {
+      btn.classList.toggle("aktif", btn.dataset.filtre === "tum");
     });
 
-    // Kontrol raporu dosyalarini gorunur rapor listesine ekle
+    kontrolFiltrele("tum");
+
+    // Loglara ekle
     sonuclar.forEach(s => {
       if (s.kontrol_dosyasi) {
-        // Goster butonu: en azindan log
         logEkle("bilgi", "Kontrol raporu: " + s.kontrol_dosyasi);
       }
     });
   }).catch(e => {
     liste.innerHTML = '<div class="bos-liste">Kontrol yapilamadi: ' + muhafaza(String(e)) + '</div>';
+  });
+}
+
+function kontrolFiltrele(filtre) {
+  kontrolFiltreli = filtre;
+  const liste = sec("kontrolListe");
+  liste.innerHTML = "";
+
+  document.querySelectorAll(".btn-filtre").forEach(btn => {
+    btn.classList.toggle("aktif", btn.dataset.filtre === filtre);
+  });
+
+  const filtrelenen = filtre === "tum"
+    ? kontrolSonuclari
+    : kontrolSonuclari.filter(s => s.durum === filtre);
+
+  if (filtrelenen.length === 0) {
+    liste.innerHTML = '<div class="bos-liste">Bu filtreyle eslesen kayit yok.</div>';
+    return;
+  }
+
+  filtrelenen.forEach(s => {
+    const kayit = document.createElement("div");
+    kayit.className = "kontrol-kayit";
+    const rozet = s.durum === "OK"
+      ? '<span class="durum-rozet ok">OK</span>'
+      : s.durum === "UYARI"
+        ? '<span class="durum-rozet uyari">UYARI</span>'
+        : '<span class="durum-rozet hata">HATA</span>';
+    kayit.innerHTML =
+      rozet +
+      '<span class="kontrol-ad">' + muhafaza(s.firma || s.dosya) + '</span>' +
+      '<span class="kontrol-ozet">' + muhafaza(s.ozet) + '</span>';
+
+    const ayrinti = s.ihlaller || [];
+    if (s.durum === "OK") {
+      kayit.classList.add("ok");
+    } else {
+      kayit.classList.add("hata");
+    }
+
+    kayit.addEventListener("click", () => {
+      if (ayrinti.length === 0) return;
+      const mevcut = kayit.querySelector(".kontrol-detay");
+      if (mevcut) { mevcut.remove(); return; }
+      const detay = document.createElement("div");
+      detay.className = "kontrol-detay";
+      ayrinti.forEach(i => {
+        const sat = document.createElement("div");
+        sat.className = "kontrol-detay-" + (i.seviye === "HATA" ? "hata" : "uyari");
+        sat.textContent = "[" + i.kural + "] Hesap " + i.hesap + " " + i.ad + " -> " + i.mesaj;
+        detay.appendChild(sat);
+      });
+      kayit.appendChild(detay);
+    });
+
+    liste.appendChild(kayit);
+  });
+}
+
+/* ---------- Kontrol Export ---------- */
+function kontrolExportJson() {
+  kontrolExportYap("json");
+}
+
+function kontrolExportCsv() {
+  kontrolExportYap("csv");
+}
+
+function kontrolExportPdf() {
+  kontrolExportYap("pdf");
+}
+
+function kontrolExportYap(format) {
+  const filtrelenen = kontrolFiltreli === "tum"
+    ? kontrolSonuclari
+    : kontrolSonuclari.filter(s => s.durum === kontrolFiltreli);
+  if (filtrelenen.length === 0) {
+    toastGoster("uyari", "Indirilecek kayit yok.");
+    return;
+  }
+  filtrelenen.forEach(s => {
+    const dosya = s.dosya;
+    fetch("/api/kontrol/export/" + format, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dosya: dosya }),
+    }).then(r => {
+      if (!r.ok) return r.json().then(j => { throw new Error(j.hata || "Bilinmeyen hata"); });
+      return r.blob();
+    }).then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      let uzanti = format;
+      if (format === "pdf") uzanti = dosya.replace(/\.xlsx$/, "_KONTROL.pdf");
+      else if (format === "csv") uzanti = dosya.replace(/\.xlsx$/, ".csv");
+      else uzanti = dosya.replace(/\.xlsx$/, ".json");
+      a.download = uzanti;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toastGoster("basarili", uzanti + " indirildi.");
+    }).catch(e => {
+      toastGoster("hata", "Indirilemedi: " + (e.message || "Bilinmeyen hata"));
+    });
   });
 }
