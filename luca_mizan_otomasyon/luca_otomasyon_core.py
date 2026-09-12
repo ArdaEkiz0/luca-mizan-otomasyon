@@ -994,12 +994,10 @@ class LucaOtomasyonCore:
         # eski frame referansı detached olabilir.
         try:
             self.liste_frame = self._frame_bul(self.dashboard, "#YIL")
-            # Tablonun tam yüklenmesini ve stabil olmasını bekle
             self.liste_frame.wait_for_selector("table.data-table tr.satir", timeout=10000)
         except Exception:
             pass
 
-        # Önce tabloda müşteri var mı kontrol et (30 sn beklemeden)
         satir_sayisi = self.liste_frame.locator("table.data-table tr.satir").count()
         log(f"  Tabloda {satir_sayisi} satır bulundu.")
         if satir_sayisi == 0:
@@ -1008,10 +1006,8 @@ class LucaOtomasyonCore:
                 f"Müşteri listesine geri dönüp filtreleri kontrol edin."
             )
 
-        # Müşteri tabloda var mı kontrol et
         eslesme = self.liste_frame.locator("table.data-table tr.satir", has_text=kisa_ad)
         if eslesme.count() == 0:
-            # Kısa ad ile eşleşme yoksa, tablodaki tüm isimleri logla
             mevcut_isimler = []
             for i in range(min(satir_sayisi, 10)):
                 try:
@@ -1024,51 +1020,78 @@ class LucaOtomasyonCore:
             )
 
         satir = eslesme.first
-
-        # ÖNEMLİ: Satırdaki "Detay" düğmesine DOĞRUDAN satır içinden tıkla.
-        # Önceki yaklaşım (`_rol_buton_tikla(self.liste_frame, "Detay")`)
-        # çerçeve genelindeki İLK "Detay" düğmesini bulup tıklıyordu — bu da
-        # her zaman tablodaki İLK müşteriye (Şule Çataloğlu) ait oluyordu,
-        # seçilen müşteriye değil. Bu yüzden tüm raporlar aynı müşterinin
-        # verilerini içeriyordu.
         onceki_sayfa_sayisi = len(self._context.pages)
         onceki_url = self.dashboard.url
 
-        detay_tiklandi = False
+        # --- YÖNTEM 1: Satır içindeki müşteri adına (link) tıkla ---
+        # Luca tablosunda müşteri adı genelde tıklanabilir bir linktir.
+        # Bu link müşteri sayfasını AYNI sekmede açar ve otomatik olarak
+        # doğru müşteri session'a yerleşir.
+        tiklandi = False
         try:
-            # Satır içindeki "Detay" düğmesini bul (buton, input, a, div, span vb.)
-            satir_detay = satir.locator(
-                'button:has-text("Detay"), input[value="Detay"], '
-                'a:has-text("Detay"), td:has-text("Detay"), '
-                'span:has-text("Detay"), div:has-text("Detay")'
-            )
-            if satir_detay.count() > 0:
-                satir_detay.first.click(timeout=5000)
-                log(f"  '{kisa_ad}' satırındaki 'Detay' düğmesine tıklandı.")
-                detay_tiklandi = True
+            # Tablodaki 2. sütun (index=1) müşteri kısa adını içerir
+            ad_hucresi = satir.locator("td").nth(1)
+            # İçinde <a> varsa ona tıkla, yoksa hücrenin kendisine tıkla
+            ad_link = ad_hucresi.locator("a")
+            if ad_link.count() > 0:
+                ad_link.first.click(timeout=5000)
+                log(f"  '{kisa_ad}' adına link tıklandı ( Hücre-2 > <a>).")
+                tiklandi = True
             else:
-                # Yedek: satırın içinde "Detay" metni olan herhangi bir eleman
-                satir_genel = satir.get_by_text("Detay", exact=True)
-                if satir_genel.count() > 0:
-                    satir_genel.first.click(timeout=5000)
-                    log(f"  '{kisa_ad}' satırındaki 'Detay' metni tıklandı (genel arama).")
-                    detay_tiklandi = True
+                # Hücrede link yoksa, hücrenin kendisi tıklanabilir olabilir
+                ad_hucresi.click(timeout=5000)
+                log(f"  '{kisa_ad}' hücre tıklandı ( Hücre-2).")
+                tiklandi = True
         except Exception as e:
-            log(f"  Satır içi 'Detay' tıklanamadı: {str(e)[:120]}")
+            log(f"  Ad linki tıklanamadı: {str(e)[:100]}")
 
-        if not detay_tiklandi:
-            # Son çare: çerçeve genelinde ara (yanlış müşteriye açma riski var)
-            log("  UYARI: Satır içi 'Detay' bulunamadı, çerçeve genelinde aranıyor...")
+        # --- YÖNTEM 2: Satır içinde "Detay" düğmesine tıkla ---
+        if not tiklandi:
+            try:
+                satir_detay = satir.locator(
+                    'button:has-text("Detay"), input[value="Detay"], '
+                    'a:has-text("Detay"), td:has-text("Detay"), '
+                    'span:has-text("Detay"), div:has-text("Detay")'
+                )
+                if satir_detay.count() > 0:
+                    satir_detay.first.click(timeout=5000)
+                    log(f"  '{kisa_ad}' satırındaki 'Detay' tıklandı.")
+                    tiklandi = True
+            except Exception as e:
+                log(f"  Satır içi 'Detay' tıklanamadı: {str(e)[:100]}")
+
+        # --- YÖNTEM 3: JS ile satır onClick tetikle ---
+        if not tiklandi:
+            try:
+                self.liste_frame.evaluate(
+                    """(satirIndex) => {
+                        const satirlar = document.querySelectorAll('table.data-table tr.satir');
+                        if (satirlar[satirIndex]) {
+                            satirlar[satirIndex].click();
+                            return true;
+                        }
+                        return false;
+                    }""",
+                    eslesme.first.evaluate("el => Array.from(el.parentNode.children).indexOf(el)"),
+                )
+                log(f"  '{kisa_ad}' JS ile satır tıklandı.")
+                tiklandi = True
+            except Exception as e:
+                log(f"  JS satır tıklama başarısız: {str(e)[:100]}")
+
+        # --- YÖNTEM 4: Çerçeve genelinde "Detay" ara (son çare) ---
+        if not tiklandi:
+            log("  UYARI: Tüm satır içi yöntemler başarısız, çerçeve genelinde aranıyor...")
             try:
                 self._rol_buton_tikla(self.liste_frame, "Detay", log)
-                detay_tiklandi = True
+                tiklandi = True
             except Exception as e:
-                log(f"  Çerçeve genelinde 'Detay' de bulunamadı: {str(e)[:120]}")
+                log(f"  Çerçeve genelinde 'Detay' de bulunamadı: {str(e)[:100]}")
 
-        # Müşteri paneli yeni sekmede ya da aynı sekmede açılmış olabilir
-        for _ in range(20):  # ~10 saniye
+        # --- Sayfa değişikliğini bekle ---
+        for _ in range(30):  # ~15 saniye
             if len(self._context.pages) > onceki_sayfa_sayisi:
-                log("  Müşteri paneli yeni bir sekmede açıldı, otomasyon o sekmeye geçiyor...")
+                log("  Yeni sekme açıldı, o sekmeye geçiliyor...")
                 self.dashboard = self._context.pages[-1]
                 try:
                     self.dashboard.bring_to_front()
@@ -1080,17 +1103,32 @@ class LucaOtomasyonCore:
                 break
             self.dashboard.wait_for_timeout(500)
 
-        # Doğrulama: seçilen müşterinin adı sayfada görünüyor mu?
-        self.dashboard.wait_for_timeout(1500)
+        self.dashboard.wait_for_timeout(2000)
+
+        # --- Doğrulama: musteriBilgileri frame'i var mı? ---
+        musteri_bulundu = False
         try:
-            sayfa_icerigi = self.dashboard.content()
-            if kisa_ad.upper() in sayfa_icerigi.upper():
-                log(f"  Doğrulama başarılı: '{kisa_ad}' sayfada bulundu.")
-            else:
-                log(f"  UYARI: '{kisa_ad}' sayfa içeriğinde bulunamadı! "
-                    f"Yanlış müşteri seçilmiş olabilir.")
+            for cv in self.dashboard.frames:
+                if "musteriBilgileri" in cv.url:
+                    musteri_bulundu = True
+                    log(f"  musteriBilgileri frame bulundu, müşteri açık: {cv.url[:80]}")
+                    break
         except Exception:
             pass
+
+        if not musteri_bulundu:
+            # musteriBilgileri frame yoksa, sayfa içeriğinde müşteri adı ara
+            try:
+                sayfa_icerigi = self.dashboard.content()
+                if kisa_ad.upper() in sayfa_icerigi.upper():
+                    musteri_bulundu = True
+                    log(f"  Doğrulama: '{kisa_ad}' sayfa içeriğinde bulundu.")
+            except Exception:
+                pass
+
+        if not musteri_bulundu:
+            log(f"  UYARI: '{kisa_ad}' için müşteri sayfası doğrulanamadı! "
+                f"URL: {self.dashboard.url[:80]}")
 
     def _filtreleri_uygula(self, log: LogFn = _sessiz_log) -> None:
         """Müşteri listesi sayfasında Yıl/Sınıf filtrelerini uygula.
