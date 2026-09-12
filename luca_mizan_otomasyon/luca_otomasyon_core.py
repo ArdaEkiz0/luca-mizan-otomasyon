@@ -1024,23 +1024,48 @@ class LucaOtomasyonCore:
             )
 
         satir = eslesme.first
-        satir.click()
 
-        # ÖNEMLİ: "Detay" düğmesi -tıpkı 'LUCA MALİ MÜŞAVİR PAKETİ' kartında
-        # olduğu gibi ('_urun_paneli_ac' içindeki aynı kontrole bakın)-
-        # müşteri panelini AYNI sekmede değil, YENİ bir sekme/pencerede de
-        # açabiliyor. Böyle bir durumda self.dashboard hâlâ ESKİ (müşteri
-        # listesi) sayfasını gösterir ve sonraki tüm adımlar (Muhasebe >
-        # Raporlar > ... aramaları) kullanıcının GÖRMEDİĞİ, artık arka
-        # planda kalmış o eski sayfada sessizce arayıp hiçbir zaman bir şey
-        # bulamaz - ekranda hiçbir şey değişmiyormuş gibi görünüp otomasyon
-        # "takılı kalıyor" şikayetinin gerçek nedeni tam olarak bu. Bu
-        # yüzden burada da aynı "yeni sekme açıldı mı?" kontrolünü yapıyoruz.
+        # ÖNEMLİ: Satırdaki "Detay" düğmesine DOĞRUDAN satır içinden tıkla.
+        # Önceki yaklaşım (`_rol_buton_tikla(self.liste_frame, "Detay")`)
+        # çerçeve genelindeki İLK "Detay" düğmesini bulup tıklıyordu — bu da
+        # her zaman tablodaki İLK müşteriye (Şule Çataloğlu) ait oluyordu,
+        # seçilen müşteriye değil. Bu yüzden tüm raporlar aynı müşterinin
+        # verilerini içeriyordu.
         onceki_sayfa_sayisi = len(self._context.pages)
         onceki_url = self.dashboard.url
 
-        self._rol_buton_tikla(self.liste_frame, "Detay", log)
+        detay_tiklandi = False
+        try:
+            # Satır içindeki "Detay" düğmesini bul (buton, input, a, div, span vb.)
+            satir_detay = satir.locator(
+                'button:has-text("Detay"), input[value="Detay"], '
+                'a:has-text("Detay"), td:has-text("Detay"), '
+                'span:has-text("Detay"), div:has-text("Detay")'
+            )
+            if satir_detay.count() > 0:
+                satir_detay.first.click(timeout=5000)
+                log(f"  '{kisa_ad}' satırındaki 'Detay' düğmesine tıklandı.")
+                detay_tiklandi = True
+            else:
+                # Yedek: satırın içinde "Detay" metni olan herhangi bir eleman
+                satir_genel = satir.get_by_text("Detay", exact=True)
+                if satir_genel.count() > 0:
+                    satir_genel.first.click(timeout=5000)
+                    log(f"  '{kisa_ad}' satırındaki 'Detay' metni tıklandı (genel arama).")
+                    detay_tiklandi = True
+        except Exception as e:
+            log(f"  Satır içi 'Detay' tıklanamadı: {str(e)[:120]}")
 
+        if not detay_tiklandi:
+            # Son çare: çerçeve genelinde ara (yanlış müşteriye açma riski var)
+            log("  UYARI: Satır içi 'Detay' bulunamadı, çerçeve genelinde aranıyor...")
+            try:
+                self._rol_buton_tikla(self.liste_frame, "Detay", log)
+                detay_tiklandi = True
+            except Exception as e:
+                log(f"  Çerçeve genelinde 'Detay' de bulunamadı: {str(e)[:120]}")
+
+        # Müşteri paneli yeni sekmede ya da aynı sekmede açılmış olabilir
         for _ in range(20):  # ~10 saniye
             if len(self._context.pages) > onceki_sayfa_sayisi:
                 log("  Müşteri paneli yeni bir sekmede açıldı, otomasyon o sekmeye geçiyor...")
@@ -1051,10 +1076,21 @@ class LucaOtomasyonCore:
                     pass
                 break
             if self.dashboard.url != onceki_url:
+                log(f"  Sayfa yönlendirildi: {self.dashboard.url[:80]}")
                 break
             self.dashboard.wait_for_timeout(500)
 
-        self.dashboard.wait_for_timeout(1000)
+        # Doğrulama: seçilen müşterinin adı sayfada görünüyor mu?
+        self.dashboard.wait_for_timeout(1500)
+        try:
+            sayfa_icerigi = self.dashboard.content()
+            if kisa_ad.upper() in sayfa_icerigi.upper():
+                log(f"  Doğrulama başarılı: '{kisa_ad}' sayfada bulundu.")
+            else:
+                log(f"  UYARI: '{kisa_ad}' sayfa içeriğinde bulunamadı! "
+                    f"Yanlış müşteri seçilmiş olabilir.")
+        except Exception:
+            pass
 
     def _filtreleri_uygula(self, log: LogFn = _sessiz_log) -> None:
         """Müşteri listesi sayfasında Yıl/Sınıf filtrelerini uygula.
