@@ -1702,29 +1702,45 @@ class LucaOtomasyonCore:
         mizan_frame.locator("#bakiye_tipi").select_option("2")
 
         # --- Tarih aralığı (opsiyonel) ---
-        # Luca mizan formu, "Tarih Aralığı" bölümünde başlangıç/bitiş tarihlerini
-        # TARIH_ILK / TARIH_SON alanlarında tutar. Boş bırakılırsa dönemin
-        # tamamı (ör. 01/01/2026 - 31/12/2026) alınır; kullanıcı belirli bir
-        # aralık isterse bu iki alanı GG/AA/YYYY formatında doldururuz.
+        # Luca mizan formunda tarih aralığı birden çok alan adıyla geliyor
+        # (TARIH_ILK/TARIH_SON büyük harf, tarih_ilk/tarih_son küçük harf).
+        # Hangi isimle sunulduğu değişebildiği için hepsini birden doldururuz.
+        # Boş bırakılırsa dönemin tamamı (ör. 01/01/2026 - 31/12/2026) alınır.
         if baslangic or bitis:
             log(f"Tarih aralığı uygulanıyor: {baslangic or 'başlangıç'} - {bitis or 'bitiş'}...")
             tarih_ayar_js = """
                 (ilk, son) => {
-                    const ayarla = (alanAd, deger) => {
-                        if (!deger) return false;
-                        const el = document.querySelector('[name="' + alanAd + '"]');
-                        if (!el) return false;
-                        const setter = Object.getOwnPropertyDescriptor(
-                            HTMLInputElement.prototype, 'value'
-                        ).set;
-                        setter.call(el, deger);
-                        el.dispatchEvent(new Event('input', {bubbles: true}));
-                        el.dispatchEvent(new Event('change', {bubbles: true}));
-                        return true;
+                    const sonuc = {ilk: [], son: []};
+                    const ayarla = (alanAd, deger, tip) => {
+                        if (!deger) return;
+                        const seciciler = [
+                            '[name="' + alanAd + '"]',
+                            '#' + alanAd,
+                        ];
+                        for (const secici of seciciler) {
+                            let elemanlar = [];
+                            try { elemanlar = Array.from(document.querySelectorAll(secici)); }
+                            catch (e) { continue; }
+                            for (const el of elemanlar) {
+                                try {
+                                    const setter = Object.getOwnPropertyDescriptor(
+                                        HTMLInputElement.prototype, 'value'
+                                    ).set;
+                                    setter.call(el, deger);
+                                    el.dispatchEvent(new Event('input', {bubbles: true}));
+                                    el.dispatchEvent(new Event('change', {bubbles: true}));
+                                    tip.push(alanAd + ':' + secici);
+                                } catch (e) {}
+                            }
+                        }
                     };
+                    ayarla('TARIH_ILK', ilk, sonuc.ilk);
+                    ayarla('TARIH_SON', son, sonuc.son);
+                    ayarla('tarih_ilk', ilk, sonuc.ilk);
+                    ayarla('tarih_son', son, sonuc.son);
                     return {
-                        ilk: ayarla('TARIH_ILK', ilk),
-                        son: ayarla('TARIH_SON', son),
+                        ilk: sonuc.ilk,
+                        son: sonuc.son,
                     };
                 }
             """
