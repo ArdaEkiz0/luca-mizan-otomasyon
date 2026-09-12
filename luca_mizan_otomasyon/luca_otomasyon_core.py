@@ -996,22 +996,38 @@ class LucaOtomasyonCore:
         URL'i şuna döner:
             TopFrameAction.do?...&SIRKET_ID=<id>&DONEM_ID=<donem>&DONEM_TXT=...
         Bu yöntem başarılıysa True döner."""
-        top_frame = None
-        for cv in self.dashboard.frames:
-            try:
-                if "TopFrameAction" in cv.url:
-                    top_frame = cv
-                    break
-            except Exception:
-                continue
-        if top_frame is None:
-            log("  UYARI: TopFrameAction frame'i bulunamadı.")
-            return False
+        from time import time as _zaman
 
+        # --- Önce frameset ana sayfasında olduğumuzdan emin ol ---
+        # Müşteri listesi doğrudan dashboard.goto(listSirketAction) ile
+        # açıldıysa frameset kaybolur ve TopFrameAction frame'i kalmaz.
         try:
-            top_frame.wait_for_selector("#SirketCombo", timeout=10000)
-        except Exception:
-            log("  UYARI: #SirketCombo bulunamadı.")
+            if "luca.do" not in self.dashboard.url:
+                luca_url = (
+                    "https://auygs.luca.com.tr/Luca/luca.do"
+                    f"?time={int(_zaman() * 1000)}"
+                )
+                log("  Frameset'e geri dönülüyor (luca.do)...")
+                self.dashboard.goto(luca_url, wait_until="domcontentloaded", timeout=30000)
+                self.dashboard.wait_for_timeout(2500)
+        except Exception as e:
+            log(f"  UYARI: luca.do'ya dönülemedi: {str(e)[:100]}")
+
+        # --- SirketCombo içeren frame'i SEÇİCİYE göre bul (URL'e güvenme) ---
+        top_frame = None
+        for _ in range(20):
+            for cv in self.dashboard.frames:
+                try:
+                    if cv.locator("#SirketCombo").count() > 0:
+                        top_frame = cv
+                        break
+                except Exception:
+                    continue
+            if top_frame is not None:
+                break
+            self.dashboard.wait_for_timeout(500)
+        if top_frame is None:
+            log("  UYARI: #SirketCombo hiçbir frame'de bulunamadı.")
             return False
 
         combo = top_frame.locator("#SirketCombo")

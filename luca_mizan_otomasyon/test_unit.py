@@ -259,6 +259,9 @@ class TestMusteriSec(unittest.TestCase):
         self.core._son_sinif = "1"
         self.core.liste_frame = self.mock_frame
         self.core._frame_bul = MagicMock(return_value=self.mock_frame)
+        # Birincil firma değiştirme yöntemi (SirketCombo) bu testlerde mock'lanır —
+        # aşağıdaki testler eski dblclick yedek akışını doğrulamaya odaklanır.
+        self.core._sirket_sec_kombodan = MagicMock(return_value=False)
 
     def _setup_tablo(self, satir_sayisi, eslesme_sayisi=1, satir_ontcik=""):
         """Tabloyu mock'la. locator() iki kez çağrılır: count ve has_text."""
@@ -1282,6 +1285,99 @@ class TestKapsamliSenaryolar(unittest.TestCase):
 
         # İlk mesaj "Toplu rapor" içermeli
         self.assertTrue(any("Toplu rapor" in m for m in log_messages[:3]))
+
+
+# ============================================================
+# _sirket_sec_kombodan TESTLERİ (SirketCombo + DonemCombo + Tamam)
+# ============================================================
+
+class TestSirketSecKombodan(unittest.TestCase):
+
+    def _kombodan_kurulum(self):
+        """SirketCombo'lu bir TopFrameAction mock'u kur."""
+        core = LucaOtomasyonCore("1", "a", "b")
+        core._son_yil = "2026"
+
+        # SirketCombo option'ları
+        combo_option = MagicMock()
+        combo_option.inner_text.return_value = "ALİ BACAK"
+        combo_option.get_attribute.return_value = "112285648"
+
+        combo = MagicMock()
+        combo.count.return_value = 3
+        combo.locator.return_value.count.return_value = 3
+        combo.locator.return_value.nth.return_value = combo_option
+        combo.evaluate.return_value = 0  # selectedIndex
+
+        # DonemCombo option'ları
+        donem_option = MagicMock()
+        donem_option.inner_text.return_value = "01/01/2026 - 31/12/2026"
+        donem_option.get_attribute.return_value = "37990903"
+
+        donem = MagicMock()
+        donem.wait_for_selector.return_value = None
+        donem.locator.return_value.count.return_value = 2
+        donem.locator.return_value.nth.return_value = donem_option
+
+        # Frame: SirketCombo içeren
+        top_frame = MagicMock()
+        top_frame.locator.side_effect = lambda s: combo if s == "#SirketCombo" else donem
+        top_frame.evaluate.return_value = {"ok": True}
+
+        # Dashboard: luca.do sayfası, frames=[top_frame]
+        page = MockPage()
+        page.url = "https://auygs.luca.com.tr/Luca/luca.do"
+        page.frames = [top_frame]
+        core.dashboard = page
+
+        return core, top_frame
+
+    def test_luca_do_degilse_frameset_geri_donulur(self):
+        """Dashboard müşteri listesi sayfasındaysa önce luca.do'ya dönülmeli."""
+        core, top_frame = self._kombodan_kurulum()
+        core.dashboard.url = "https://auygs.luca.com.tr/Luca/listSirketAction.do?time=1"
+
+        log_messages = []
+        sonuc = core._sirket_sec_kombodan("ALİ BACAK", log=lambda m: log_messages.append(m))
+
+        self.assertTrue(sonuc)
+        # goto() çağrılmış olmalı
+        self.assertTrue(any("luca.do" in m for m in log_messages))
+
+    def test_firma_secimi_basarili(self):
+        """Firma seçilip Tamam'a basılınca True dönmeli."""
+        core, top_frame = self._kombodan_kurulum()
+
+        log_messages = []
+        sonuc = core._sirket_sec_kombodan("ALİ BACAK", log=lambda m: log_messages.append(m))
+
+        self.assertTrue(sonuc)
+        self.assertTrue(any("ALİ BACAK" in m for m in log_messages))
+        self.assertTrue(any("formSubmit" in m for m in log_messages))
+
+    def test_firma_bulunamazsa_false(self):
+        """Combo'da müşteri yoksa False dönmeli."""
+        core, top_frame = self._kombodan_kurulum()
+
+        log_messages = []
+        sonuc = core._sirket_sec_kombodan("OLMAYAN FİRMA", log=lambda m: log_messages.append(m))
+
+        self.assertFalse(sonuc)
+        self.assertTrue(any("bulunamadı" in m for m in log_messages))
+
+    def test_combo_yoksa_false(self):
+        """Hiçbir frame'de SirketCombo yoksa False dönmeli."""
+        core = LucaOtomasyonCore("1", "a", "b")
+        page = MockPage()
+        page.url = "https://auygs.luca.com.tr/Luca/luca.do"
+        bos_frame = MagicMock()
+        bos_frame.locator.return_value.count.return_value = 0
+        page.frames = [bos_frame]
+        core.dashboard = page
+
+        sonuc = core._sirket_sec_kombodan("ALİ BACAK", log=lambda m: None)
+
+        self.assertFalse(sonuc)
 
 
 if __name__ == "__main__":
