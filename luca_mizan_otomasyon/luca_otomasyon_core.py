@@ -990,6 +990,7 @@ class LucaOtomasyonCore:
         if self.liste_frame is None:
             raise RuntimeError("Önce baslat_ve_filtrele() çağrılmalı.")
         log(f"'{kisa_ad}' seçilip müşteri kartı açılıyor...")
+
         # Frame her çağrıyı yeniden bul — musteri_kartina_don() sonrası
         # eski frame referansı detached olabilir.
         try:
@@ -1011,7 +1012,9 @@ class LucaOtomasyonCore:
             mevcut_isimler = []
             for i in range(min(satir_sayisi, 10)):
                 try:
-                    isim = self.liste_frame.locator("table.data-table tr.satir").nth(i).locator("td").nth(1).inner_text().strip()
+                    isim = self.liste_frame.locator(
+                        "table.data-table tr.satir"
+                    ).nth(i).locator("td").nth(1).inner_text().strip()
                     mevcut_isimler.append(isim)
                 except Exception:
                     pass
@@ -1023,113 +1026,77 @@ class LucaOtomasyonCore:
         onceki_sayfa_sayisi = len(self._context.pages)
         onceki_url = self.dashboard.url
 
-        # --- TEŞHIS: Satırın HTML yapısını logla (ilk çalıştırmada) ---
-        try:
-            satir_html = satir.evaluate(
-                "el => el.outerHTML.slice(0, 500)"
-            )
-            log(f"  Satır HTML (ilk 500): {satir_html}")
-        except Exception:
-            pass
-
-        # --- YÖNTEM 1: Satır içindeki tüm tıklanabilir elemanları bul ve tıkla ---
+        # === DOĞRU MEKANİZMA: sec() + gonder('guncelle') ===
+        # Tablo satırının onclick'i: sec(this, 'ID', 'AD', 'VERGI', ...)
+        # ondblclick'i: gonder('guncelle') — bu sunucu tarafında session'a
+        # müşteri kaydeder. Sadece sec() çağırmak yetmez.
         tiklandi = False
+
+        # YÖNTEM A: onclick attribute'undan sec() parametrelerini çıkar ve çağır
         try:
-            # satir içindeki <a> tag'lerini kontrol et
-            linkler = satir.locator("a")
-            link_sayisi = linkler.count()
-            log(f"  Satırda {link_sayisi} adet <a> bulundu.")
-            for li in range(link_sayisi):
-                try:
-                    link = linkler.nth(li)
-                    link_metin = link.inner_text().strip()
-                    link_href = link.get_attribute("href") or ""
-                    link_onclick = link.get_attribute("onclick") or ""
-                    log(f"    Link[{li}]: metin='{link_metin}', href='{link_href[:60]}', onclick='{link_onclick[:60]}'")
-                except Exception:
-                    pass
-
-            # müşteri adına en yakın linki tıkla
-            ad_link = satir.locator(f'a:has-text("{kisa_ad}")')
-            if ad_link.count() > 0:
-                ad_link.first.click(timeout=5000)
-                log(f"  '{kisa_ad}' adına link tıklandı.")
-                tiklandi = True
-            elif link_sayisi > 0:
-                # İlk linki tıkla (muhtemelen müşteri detay linki)
-                linkler.first.click(timeout=5000)
-                log(f"  Satırdaki ilk link tıklandı.")
-                tiklandi = True
-        except Exception as e:
-            log(f"  Link tıklanamadı: {str(e)[:120]}")
-
-        # --- YÖNTEM 2: Satır içinde onclick'i olan elemanları bul ---
-        if not tiklandi:
-            try:
-                onclick_lu = satir.locator("[onclick]")
-                onclick_sayisi = onclick_lu.count()
-                log(f"  Satırda {onclick_sayisi} adet [onclick] elemanı bulundu.")
-                for oi in range(min(onclick_sayisi, 5)):
-                    try:
-                        el = onclick_lu.nth(oi)
-                        oc = el.get_attribute("onclick") or ""
-                        tag = el.evaluate("el => el.tagName.toLowerCase()")
-                        metin = el.inner_text().strip()[:30]
-                        log(f"    Onclick[{oi}]: tag={tag}, metin='{metin}', onclick='{oc[:80]}'")
-                    except Exception:
-                        pass
-                if onclick_sayisi > 0:
-                    onclick_lu.first.click(timeout=5000)
-                    log(f"  İlk [onclick] elemanı tıklandı.")
-                    tiklandi = True
-            except Exception as e:
-                log(f"  Onclick tıklanamadı: {str(e)[:120]}")
-
-        # --- YÖNTEM 3: Satır içinde "Detay" düğmesine tıkla ---
-        if not tiklandi:
-            try:
-                satir_detay = satir.locator(
-                    'button:has-text("Detay"), input[value="Detay"], '
-                    'a:has-text("Detay"), td:has-text("Detay"), '
-                    'span:has-text("Detay"), div:has-text("Detay")'
-                )
-                if satir_detay.count() > 0:
-                    satir_detay.first.click(timeout=5000)
-                    log(f"  '{kisa_ad}' satırındaki 'Detay' tıklandı.")
-                    tiklandi = True
-            except Exception as e:
-                log(f"  Satır içi 'Detay' tıklanamadı: {str(e)[:120]}")
-
-        # --- YÖNTEM 4: JS ile satır onClick tetikle ---
-        if not tiklandi:
-            try:
-                satir_index = eslesme.first.evaluate(
-                    "el => Array.from(el.parentNode.children).indexOf(el)"
-                )
-                self.liste_frame.evaluate(
+            onclick_str = satir.get_attribute("onclick") or ""
+            if "sec(" in onclick_str:
+                log(f"  Row onclick: '{onclick_str[:80]}'")
+                # sec() parametrelerini satırdan çıkar ve çağır
+                sec_result = self.liste_frame.evaluate(
                     """(satirIndex) => {
-                        const satirlar = document.querySelectorAll('table.data-table tr.satir');
-                        if (satirlar[satirIndex]) {
-                            satirlar[satirIndex].click();
-                            return true;
-                        }
-                        return false;
+                        const satir = document.querySelectorAll('table.data-table tr.satir')[satirIndex];
+                        if (!satir) return {ok: false, msg: 'satir not found'};
+                        const onclickAttr = satir.getAttribute('onclick') || '';
+                        if (!onclickAttr.includes('sec(')) return {ok: false, msg: 'no sec() in onclick'};
+                        // sec() çağır
+                        try { satir.click(); } catch(e) {}
+                        return {ok: true, onclick: onclickAttr.slice(0, 120)};
                     }""",
-                    satir_index,
+                    eslesme.first.evaluate(
+                        "el => Array.from(el.parentNode.children).indexOf(el)"
+                    ),
                 )
-                log(f"  '{kisa_ad}' JS ile satır tıklandı.")
+                log(f"  sec() çağrıldı: {sec_result}")
                 tiklandi = True
-            except Exception as e:
-                log(f"  JS satır tıklama başarısız: {str(e)[:120]}")
 
-        # --- YÖNTEM 5: Çerçeve genelinde "Detay" ara (son çare) ---
+                # Şimdi gonder('guncelle') çağır — bu müşteri sayfasını açar
+                # ve sunucu session'ına kaydeder
+                self.dashboard.wait_for_timeout(1000)
+                gonder_result = self.liste_frame.evaluate(
+                    """() => {
+                        if (typeof gonder === 'function') {
+                            try {
+                                gonder('guncelle');
+                                return {ok: true};
+                            } catch(e) {
+                                return {ok: false, msg: e.toString()};
+                            }
+                        }
+                        return {ok: false, msg: 'gonder not found'};
+                    }"""
+                )
+                log(f"  gonder('guncelle') çağrıldı: {gonder_result}")
+            else:
+                log(f"  Row onclick yok veya sec() içermiyor: '{onclick_str[:80]}'")
+        except Exception as e:
+            log(f"  sec()/gonder() hatası: {str(e)[:150]}")
+
+        # YÖNTEM B: gonder() bulunamazsa, double-click ile tetikle
         if not tiklandi:
-            log("  UYARI: Tüm satır içi yöntemler başarısız, çerçeve genelinde aranıyor...")
             try:
-                self._rol_buton_tikla(self.liste_frame, "Detay", log)
+                log("  Double-click deneniyor...")
+                satir.dblclick(timeout=5000)
                 tiklandi = True
             except Exception as e:
-                log(f"  Çerçeve genelinde 'Detay' de bulunamadı: {str(e)[:120]}")
+                log(f"  Double-click başarısız: {str(e)[:120]}")
+
+        # YÖNTEM C: Son çare — satır click (sadece sec() çağırır, yetmeyebilir)
+        if not tiklandi:
+            try:
+                log("  Son çare: satır.click() deneniyor...")
+                satir.click(timeout=5000)
+                tiklandi = True
+            except Exception as e:
+                log(f"  Satır click başarısız: {str(e)[:120]}")
+
+        if not tiklandi:
+            raise RuntimeError(f"'{kisa_ad}' için hiç bir tıklama yöntemi çalışmadı!")
 
         # --- Sayfa değişikliğini bekle ---
         for _ in range(30):  # ~15 saniye
@@ -1148,13 +1115,13 @@ class LucaOtomasyonCore:
 
         self.dashboard.wait_for_timeout(2000)
 
-        # --- Doğrulama: musteriBilgileri frame'i var mı? ---
+        # --- Doğrulama: müşteri sayfası yüklendi mi? ---
         musteri_bulundu = False
         try:
             for cv in self.dashboard.frames:
                 if "musteriBilgileri" in cv.url:
                     musteri_bulundu = True
-                    log(f"  musteriBilgileri frame bulundu, müşteri açık: {cv.url[:80]}")
+                    log(f"  musteriBilgileri frame bulundu: {cv.url[:80]}")
                     break
         except Exception:
             pass
@@ -1170,6 +1137,44 @@ class LucaOtomasyonCore:
 
         if not musteri_bulundu:
             log(f"  UYARI: '{kisa_ad}' için müşteri sayfası doğrulanamadı! "
+                f"URL: {self.dashboard.url[:80]}")
+            # gonder() bulunamadıysa veya çalışmadıysa, alternatif:
+            # JS ile forms submit dene
+            try:
+                alt_result = self.liste_frame.evaluate(
+                    """(satirIndex) => {
+                        const satir = document.querySelectorAll('table.data-table tr.satir')[satirIndex];
+                        if (!satir) return {ok: false, msg: 'satir not found'};
+                        // Checkbox'ı işaretle (bazı Luxembourg'lar bunu gerektirir)
+                        const cb = satir.querySelector('input[type="checkbox"]');
+                        if (cb && !cb.checked) {
+                            cb.checked = true;
+                            cb.dispatchEvent(new Event('change', {bubbles: true}));
+                        }
+                        // Double-click tetikle (ondblclick="gonder('guncelle')")
+                        const evt = new MouseEvent('dblclick', {
+                            bubbles: true, cancelable: true, view: window
+                        });
+                        satir.dispatchEvent(evt);
+                        return {ok: true, method: 'dblclick event dispatched'};
+                    }""",
+                    eslesme.first.evaluate(
+                        "el => Array.from(el.parentNode.children).indexOf(el)"
+                    ),
+                )
+                log(f"  Alternatif dblclick event: {alt_result}")
+                self.dashboard.wait_for_timeout(3000)
+                # Tekrar kontrol
+                for cv in self.dashboard.frames:
+                    if "musteriBilgileri" in cv.url:
+                        musteri_bulundu = True
+                        log(f"  Alternatif yöntemle müşteri bulundu: {cv.url[:80]}")
+                        break
+            except Exception as e:
+                log(f"  Alternatif dblclick hatası: {str(e)[:120]}")
+
+        if not musteri_bulundu:
+            log(f"  HATA: '{kisa_ad}' müşteri sayfası açılamadı! "
                 f"URL: {self.dashboard.url[:80]}")
 
     def _filtreleri_uygula(self, log: LogFn = _sessiz_log) -> None:
