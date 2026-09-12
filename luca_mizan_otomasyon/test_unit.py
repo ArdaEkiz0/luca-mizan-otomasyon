@@ -1,33 +1,31 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Luca Mizan Otomasyon - Unit Test (Mock ile)
-============================================
-Gerçek siteye bağlanmadan kod mantığını test eder.
+Luca Mizan Otomasyon - Kapsamli Testler
+=========================================
+Gercek siteye baglanmadan kod mantigini test eder.
 Playwright nesneleri taklit edilir (mock).
 """
 
 import sys
 import os
 import unittest
+import shutil
+import tempfile
 from unittest.mock import MagicMock, patch, PropertyMock, call
 from pathlib import Path
 from typing import Optional
 
-# .env yükle (test ortamı için)
 from dotenv import load_dotenv
 load_dotenv()
 
-# Test edilecek modülü import et
 from luca_otomasyon_core import LucaOtomasyonCore, SINIF_ETIKETLERI
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 
 class MockFrame:
-    """Playwright Frame nesnesini taklit eder."""
     def __init__(self, url="https://test.luca.com.tr/test"):
         self.url = url
-        self._selectors = {}
-        self._elements = {}
 
     def locator(self, selector):
         mock = MagicMock()
@@ -68,7 +66,6 @@ class MockFrame:
 
 
 class MockPage:
-    """Playwright Page nesnesini taklit eder."""
     def __init__(self, url="https://test.luca.com.tr/main.erp"):
         self.url = url
         self.frames = []
@@ -128,7 +125,6 @@ class MockPage:
 
 
 class MockBrowser:
-    """Playwright Browser nesnesini taklit eder."""
     def __init__(self):
         self._closed = False
 
@@ -140,7 +136,6 @@ class MockBrowser:
 
 
 class MockContext:
-    """Playwright BrowserContext nesnesini taklit eder."""
     def __init__(self):
         self.pages = []
         self._page = MockPage()
@@ -152,7 +147,6 @@ class MockContext:
 
 
 class MockPlaywright:
-    """Playwright nesnesini taklit eder."""
     def __init__(self):
         self.chromium = MagicMock()
         self.chromium.launch.return_value = MockBrowser()
@@ -164,11 +158,13 @@ class MockPlaywright:
         pass
 
 
+# ============================================================
+# CORE TESTLERI
+# ============================================================
+
 class TestLucaOtomasyonCore(unittest.TestCase):
-    """LucaOtomasyonCore sınıfının temel testleri."""
 
     def setUp(self):
-        """Her test öncesi çalışır."""
         self.core = LucaOtomasyonCore(
             uye_no="12345",
             kullanici_adi="test@test.com",
@@ -178,14 +174,12 @@ class TestLucaOtomasyonCore(unittest.TestCase):
         )
 
     def tearDown(self):
-        """Her test sonrası çalışır."""
         try:
             self.core.kapat()
         except Exception:
             pass
 
-    def test_sınıf_etiketleri_doğru_mu(self):
-        """Sınıf etiketleri doğru tanımlanmış mı?"""
+    def test_sinif_etiketleri_dogru_mu(self):
         self.assertEqual(SINIF_ETIKETLERI[""], "Tümü")
         self.assertEqual(SINIF_ETIKETLERI["1"], "1.Sınıf")
         self.assertEqual(SINIF_ETIKETLERI["2"], "2.Sınıf")
@@ -193,8 +187,7 @@ class TestLucaOtomasyonCore(unittest.TestCase):
         self.assertEqual(SINIF_ETIKETLERI["4"], "Serbest Meslek Defteri")
         self.assertEqual(SINIF_ETIKETLERI["5"], "Basit Usül")
 
-    def test_core_başlangıç_durumu(self):
-        """Core nesnesi doğru başlangıç durumunda mı?"""
+    def test_core_baslangic_durumu(self):
         self.assertEqual(self.core.uye_no, "12345")
         self.assertEqual(self.core.kullanici_adi, "test@test.com")
         self.assertEqual(self.core.parola, "sifre123")
@@ -202,12 +195,20 @@ class TestLucaOtomasyonCore(unittest.TestCase):
         self.assertIsNone(self.core.liste_frame)
 
     def test_cikti_klasoru_olusturma(self):
-        """Çıktı klasörü doğru oluşturuluyor mu?"""
         self.assertEqual(self.core.cikti_klasoru, Path("test_raporlar"))
+
+    def test_cikti_klasoru_string_path(self):
+        core = LucaOtomasyonCore("1", "a", "b", cikti_klasoru="/tmp/test_output")
+        self.assertEqual(core.cikti_klasoru, Path("/tmp/test_output"))
+
+    def test_bos_bilgilerle_baslat(self):
+        core = LucaOtomasyonCore("", "", "", cikti_klasoru="test")
+        self.assertEqual(core.uye_no, "")
+        self.assertEqual(core.kullanici_adi, "")
+        self.assertEqual(core.parola, "")
 
 
 class TestMusteriKartinaDon(unittest.TestCase):
-    """musteri_kartina_don fonksiyonunun testleri."""
 
     def setUp(self):
         self.core = LucaOtomasyonCore(
@@ -217,7 +218,6 @@ class TestMusteriKartinaDon(unittest.TestCase):
             cikti_klasoru="test_raporlar",
             headless=True,
         )
-        # Mock dashboard ve context
         self.mock_page = MockPage()
         mock_frame = MockFrame()
         self.mock_page.frames = [mock_frame]
@@ -228,13 +228,11 @@ class TestMusteriKartinaDon(unittest.TestCase):
         self.core._son_yil = "2026"
         self.core._son_sinif = "1"
         self.core.liste_frame = mock_frame
-        # _frame_bul ve _rol_buton_tikla'yı mockla
         self.core._frame_bul = MagicMock(return_value=mock_frame)
         self.core._rol_buton_tikla = MagicMock()
 
     @patch('luca_otomasyon_core.sync_playwright')
-    def test_musteri_kartina_don_url_ile_dönme(self, mock_pw):
-        """musteri_kartina_don URL ile müşteri listesine dönmeli."""
+    def test_musteri_kartina_don_url_ile_donme(self, mock_pw):
         log_messages = []
         def log_fn(msg):
             log_messages.append(msg)
@@ -247,7 +245,6 @@ class TestMusteriKartinaDon(unittest.TestCase):
 
     @patch('luca_otomasyon_core.sync_playwright')
     def test_musteri_kartina_don_filtre_uygulama(self, mock_pw):
-        """musteri_kartina_don sonrası filtreler yeniden uygulanmalı."""
         log_messages = []
         def log_fn(msg):
             log_messages.append(msg)
@@ -257,9 +254,13 @@ class TestMusteriKartinaDon(unittest.TestCase):
 
         self.core._filtreleri_uygula.assert_called_once_with(log_fn)
 
+    def test_musteri_kartina_don_dashboard_yoksa(self):
+        core = LucaOtomasyonCore("1", "a", "b")
+        with self.assertRaises(RuntimeError):
+            core.musteri_kartina_don()
+
 
 class TestFiltreleriUygula(unittest.TestCase):
-    """_filtreleri_uygula fonksiyonunun testleri."""
 
     def setUp(self):
         self.core = LucaOtomasyonCore(
@@ -276,24 +277,33 @@ class TestFiltreleriUygula(unittest.TestCase):
         self.core.dashboard = MockPage()
 
     def test_filtre_yil_sinif_uygulama(self):
-        """Filtre Yıl ve Sınıf değerlerini uygulamalı."""
         log_messages = []
         def log_fn(msg):
             log_messages.append(msg)
 
-        # _rol_buton_tikla'yı mockla
         self.core._rol_buton_tikla = MagicMock()
         self.core._frame_bul = MagicMock(return_value=self.mock_frame)
 
         self.core._filtreleri_uygula(log_fn)
 
-        # Yıl ve Sınıf seçilmiş olmalı
         self.assertIn("Filtre uygulanıyor", log_messages[0])
         self.assertIn("2026", log_messages[0])
 
+    def test_filtre_farkli_yil(self):
+        self.core._son_yil = "2025"
+        log_messages = []
+        def log_fn(msg):
+            log_messages.append(msg)
+
+        self.core._rol_buton_tikla = MagicMock()
+        self.core._frame_bul = MagicMock(return_value=self.mock_frame)
+
+        self.core._filtreleri_uygula(log_fn)
+
+        self.assertIn("2025", log_messages[0])
+
 
 class TestTopluMizanRaporu(unittest.TestCase):
-    """toplu_mizan_raporu fonksiyonunun testleri."""
 
     def setUp(self):
         self.core = LucaOtomasyonCore(
@@ -315,22 +325,16 @@ class TestTopluMizanRaporu(unittest.TestCase):
 
     @patch('luca_otomasyon_core.sync_playwright')
     def test_tek_musteri_rapor(self, mock_pw):
-        """Tek müşteri için rapor oluşturulmalı."""
         musteriler = [
             {"kisa_ad": "TEST FİRMA", "uzun_ad": "Test Firma A.Ş.", "vergi_dairesi": "İstanbul", "vergi_no": "1234567890"}
         ]
 
-        log_messages = []
-        def log_fn(msg):
-            log_messages.append(msg)
-
-        # Mock'ları ayarla
         self.core.musteri_sec = MagicMock()
         self.core.mizan_raporu_olustur = MagicMock(return_value=Path("test_raporlar/TEST FİRMA_Mizan_2026.xlsx"))
         self.core.musteri_kartina_don = MagicMock()
         self.core._filtreleri_uygula = MagicMock()
 
-        sonuclar = self.core.toplu_mizan_raporu(musteriler, log=log_fn)
+        sonuclar = self.core.toplu_mizan_raporu(musteriler, log=lambda m: None)
 
         self.assertEqual(len(sonuclar), 1)
         self.assertEqual(sonuclar[0]["durum"], "başarılı")
@@ -339,42 +343,30 @@ class TestTopluMizanRaporu(unittest.TestCase):
 
     @patch('luca_otomasyon_core.sync_playwright')
     def test_iki_musteri_rapor(self, mock_pw):
-        """İki müşteri için rapor oluşturulmalı, arada listeye dönülmeli."""
         musteriler = [
             {"kisa_ad": "FİRMA A", "uzun_ad": "Firma A A.Ş.", "vergi_dairesi": "İstanbul", "vergi_no": "111"},
             {"kisa_ad": "FİRMA B", "uzun_ad": "Firma B A.Ş.", "vergi_dairesi": "Ankara", "vergi_no": "222"},
         ]
-
-        log_messages = []
-        def log_fn(msg):
-            log_messages.append(msg)
 
         self.core.musteri_sec = MagicMock()
         self.core.mizan_raporu_olustur = MagicMock(return_value=Path("test.xlsx"))
         self.core.musteri_kartina_don = MagicMock()
         self.core._filtreleri_uygula = MagicMock()
 
-        sonuclar = self.core.toplu_mizan_raporu(musteriler, log=log_fn)
+        sonuclar = self.core.toplu_mizan_raporu(musteriler, log=lambda m: None)
 
         self.assertEqual(len(sonuclar), 2)
         self.assertEqual(sonuclar[0]["durum"], "başarılı")
         self.assertEqual(sonuclar[1]["durum"], "başarılı")
-        # İki müşteri arasında bir kez listeye dönülmeli
         self.core.musteri_kartina_don.assert_called_once()
 
     @patch('luca_otomasyon_core.sync_playwright')
-    def test_hatalı_musteri_sonraki_devam(self, mock_pw):
-        """Bir müşteride hata olsa bile diğer müşterilere devam etmeli."""
+    def test_hatali_musteri_sonraki_devam(self, mock_pw):
         musteriler = [
             {"kisa_ad": "HATALI", "uzun_ad": "Hatalı Firma", "vergi_dairesi": "X", "vergi_no": "1"},
             {"kisa_ad": "İYİ", "uzun_ad": "İyi Firma", "vergi_dairesi": "Y", "vergi_no": "2"},
         ]
 
-        log_messages = []
-        def log_fn(msg):
-            log_messages.append(msg)
-
-        # İlk müşteride hata fırlat
         call_count = [0]
         def mock_musteri_sec(kisa_ad, log=None):
             call_count[0] += 1
@@ -387,15 +379,14 @@ class TestTopluMizanRaporu(unittest.TestCase):
         self.core.musteri_kartina_don = MagicMock()
         self.core._filtreleri_uygula = MagicMock()
 
-        sonuclar = self.core.toplu_mizan_raporu(musteriler, log=log_fn)
+        sonuclar = self.core.toplu_mizan_raporu(musteriler, log=lambda m: None)
 
         self.assertEqual(len(sonuclar), 2)
         self.assertEqual(sonuclar[0]["durum"], "hatalı")
         self.assertEqual(sonuclar[1]["durum"], "başarılı")
 
     @patch('luca_otomasyon_core.sync_playwright')
-    def test_kurtarma_mekanizması(self, mock_pw):
-        """musteri_kartina_don hata verirse kurtarma denenmeli."""
+    def test_kurtarma_mekanizmasi(self, mock_pw):
         musteriler = [
             {"kisa_ad": "FİRMA A", "uzun_ad": "Test", "vergi_dairesi": "X", "vergi_no": "1"},
             {"kisa_ad": "FİRMA B", "uzun_ad": "Test", "vergi_dairesi": "Y", "vergi_no": "2"},
@@ -408,7 +399,6 @@ class TestTopluMizanRaporu(unittest.TestCase):
         self.core.musteri_sec = MagicMock()
         self.core.mizan_raporu_olustur = MagicMock(return_value=Path("test.xlsx"))
 
-        # musteri_kartina_don ilk seferde hata versin, kurtarma ile düzelir
         don_sayac = [0]
         def mock_don(log=None):
             don_sayac[0] += 1
@@ -418,7 +408,6 @@ class TestTopluMizanRaporu(unittest.TestCase):
         self.core.musteri_kartina_don = mock_don
         self.core._filtreleri_uygula = MagicMock()
 
-        # dashboard.goto'yu mockla (kurtarma için)
         self.core.dashboard.goto = MagicMock()
         self.core._frame_bul = MagicMock(return_value=self.core.liste_frame)
         self.core.liste_frame.wait_for_selector = MagicMock()
@@ -426,15 +415,32 @@ class TestTopluMizanRaporu(unittest.TestCase):
         sonuclar = self.core.toplu_mizan_raporu(musteriler, log=log_fn)
 
         self.assertEqual(len(sonuclar), 2)
-        # Kurtarma mesajı loglanmalı
         self.assertTrue(any("Kurtarma başarılı" in m for m in log_messages))
+
+    @patch('luca_otomasyon_core.sync_playwright')
+    def test_uc_musteri_rapor(self, mock_pw):
+        musteriler = [
+            {"kisa_ad": "A", "uzun_ad": "A A.Ş.", "vergi_dairesi": "X", "vergi_no": "1"},
+            {"kisa_ad": "B", "uzun_ad": "B A.Ş.", "vergi_dairesi": "Y", "vergi_no": "2"},
+            {"kisa_ad": "C", "uzun_ad": "C A.Ş.", "vergi_dairesi": "Z", "vergi_no": "3"},
+        ]
+
+        self.core.musteri_sec = MagicMock()
+        self.core.mizan_raporu_olustur = MagicMock(return_value=Path("test.xlsx"))
+        self.core.musteri_kartina_don = MagicMock()
+        self.core._filtreleri_uygula = MagicMock()
+
+        sonuclar = self.core.toplu_mizan_raporu(musteriler, log=lambda m: None)
+
+        self.assertEqual(len(sonuclar), 3)
+        for s in sonuclar:
+            self.assertEqual(s["durum"], "başarılı")
+        self.assertEqual(self.core.musteri_kartina_don.call_count, 2)
 
 
 class TestEdgeCases(unittest.TestCase):
-    """Sınır durumları testleri."""
 
     def test_bos_musteri_listesi(self):
-        """Boş müşteri listesi ile toplu rapor çağrılmalı."""
         core = LucaOtomasyonCore("1", "a", "b")
         core.dashboard = MockPage()
         core._context = MockContext()
@@ -443,32 +449,182 @@ class TestEdgeCases(unittest.TestCase):
         core._son_yil = "2026"
         core._son_sinif = "1"
 
+        sonuclar = core.toplu_mizan_raporu([], log=lambda m: None)
+        self.assertEqual(len(sonuclar), 0)
+
+    def test_dashboard_yoksa_hata(self):
+        core = LucaOtomasyonCore("1", "a", "b")
+        with self.assertRaises(RuntimeError):
+            core.musteri_kartina_don()
+
+    def test_mizan_raporu_olustur_dashboard_yoksa(self):
+        core = LucaOtomasyonCore("1", "a", "b")
+        with self.assertRaises(RuntimeError):
+            core.mizan_raporu_olustur("test")
+
+    def test_tek_musteri_kurtarma_basarisiz(self):
+        core = LucaOtomasyonCore("1", "a", "b")
+        core.dashboard = MockPage()
+        core._context = MockContext()
+        core._context.pages = [core.dashboard]
+        core.liste_frame = MockFrame()
+        core._son_yil = "2026"
+        core._son_sinif = "1"
+        core.cikti_klasoru = Path("test_raporlar")
+
+        musteriler = [
+            {"kisa_ad": "A", "uzun_ad": "A", "vergi_dairesi": "X", "vergi_no": "1"},
+        ]
+
+        core.musteri_sec = MagicMock()
+        core.mizan_raporu_olustur = MagicMock(return_value=Path("test.xlsx"))
+        core.musteri_kartina_don = MagicMock(side_effect=RuntimeError("Dönülemedi"))
+        core._filtreleri_uygula = MagicMock()
+        core._frame_bul = MagicMock(return_value=core.liste_frame)
+        core.liste_frame.wait_for_selector = MagicMock()
+        core.dashboard.goto = MagicMock()
+
+        sonuclar = core.toplu_mizan_raporu(musteriler, log=lambda m: None)
+
+        self.assertEqual(len(sonuclar), 1)
+        self.assertEqual(sonuclar[0]["durum"], "başarılı")
+
+
+class TestGuiImports(unittest.TestCase):
+
+    def test_gui_modulunu_import_et(self):
+        import gui_app
+        self.assertTrue(hasattr(gui_app, 'LucaGUI'))
+        self.assertTrue(hasattr(gui_app, 'main'))
+
+    def test_env_yukle(self):
+        from gui_app import _env_yukle
+        ayar = _env_yukle()
+        self.assertIn("uye_no", ayar)
+        self.assertIn("kullanici_adi", ayar)
+        self.assertIn("parola", ayar)
+        self.assertIn("yil", ayar)
+        self.assertIn("sinif", ayar)
+
+    def test_siniflar_tanimli(self):
+        from gui_app import SINIFLAR
+        self.assertIsInstance(SINIFLAR, list)
+        self.assertTrue(len(SINIFLAR) > 0)
+        for kod, etiket in SINIFLAR:
+            self.assertIsInstance(kod, str)
+            self.assertIsInstance(etiket, str)
+
+
+class TestDosyaIslemleri(unittest.TestCase):
+
+    def setUp(self):
+        self.test_dizin = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.test_dizin, ignore_errors=True)
+
+    def test_log_dosyasi_yazma(self):
+        from gui_app import _dosyaya_log_yaz
+        test_log = self.test_dizin / "test_log.txt"
+
+        import gui_app
+        eski_log = gui_app.LOG_DOSYASI
+        gui_app.LOG_DOSYASI = test_log
+
+        _dosyaya_log_yaz("Test mesaji")
+        self.assertTrue(test_log.exists())
+
+        icerik = test_log.read_text(encoding="utf-8")
+        self.assertIn("Test mesaji", icerik)
+
+        gui_app.LOG_DOSYASI = eski_log
+
+    def test_env_kaydet(self):
+        from gui_app import _env_kaydet
+        env_dosya = self.test_dizin / ".env"
+
+        import gui_app
+        eski_env = gui_app.ENV_PATH
+        gui_app.ENV_PATH = env_dosya
+
+        _env_kaydet("12345", "test@test.com", "sifre123", "2026", "1")
+        self.assertTrue(env_dosya.exists())
+
+        icerik = env_dosya.read_text(encoding="utf-8")
+        self.assertIn("12345", icerik)
+        self.assertIn("test@test.com", icerik)
+
+        gui_app.ENV_PATH = eski_env
+
+
+class TestFrameBul(unittest.TestCase):
+    """_frame_bul fonksiyonunun testleri."""
+
+    def test_frame_buldu(self):
+        core = LucaOtomasyonCore("1", "a", "b")
+        mock_frame = MockFrame()
+        mock_frame.locator = MagicMock()
+        mock_frame.locator.return_value.count.return_value = 1
+
+        mock_page = MockPage()
+        mock_page.frames = [mock_frame]
+
+        result = core._frame_bul(mock_page, "#YIL", deneme=3, bekleme_ms=10)
+        self.assertEqual(result, mock_frame)
+
+    def test_frame_bulamadi(self):
+        core = LucaOtomasyonCore("1", "a", "b")
+        mock_frame = MockFrame()
+        mock_frame.locator = MagicMock()
+        mock_frame.locator.return_value.count.return_value = 0
+
+        mock_page = MockPage()
+        mock_page.frames = [mock_frame]
+
+        with self.assertRaises(RuntimeError):
+            core._frame_bul(mock_page, "#YIL", deneme=2, bekleme_ms=10)
+
+
+class TestRolButonTikla(unittest.TestCase):
+    """_rol_buton_tikla fonksiyonunun testleri."""
+
+    def test_birincil_yontem_basarili(self):
+        core = LucaOtomasyonCore("1", "a", "b")
+        mock_frame = MockFrame()
+
         log_messages = []
         def log_fn(msg):
             log_messages.append(msg)
 
-        sonuclar = core.toplu_mizan_raporu([], log=log_fn)
-        self.assertEqual(len(sonuclar), 0)
+        core._rol_buton_tikla(mock_frame, "Ara", log_fn)
 
-    def test_dashboard_yoksa_hata(self):
-        """Dashboard yoksa RuntimeError fırlatmalı."""
+    def test_basarisiz_olunca_hata_firlatir(self):
         core = LucaOtomasyonCore("1", "a", "b")
+        mock_frame = MagicMock()
+        mock_frame.get_by_role.return_value.click.side_effect = PlaywrightTimeoutError("Timeout")
+        mock_frame.get_by_text.return_value.count.return_value = 0
+        mock_frame.get_by_text.return_value.first.click.side_effect = Exception("Timeout")
+
+        # JS evaluate de hata versin
+        mock_frame.evaluate.return_value = {"bulundu": False}
+
+        # Butun secenekler de hata versin
+        mock_locator = MagicMock()
+        mock_locator.count.return_value = 0
+        mock_frame.locator.return_value = mock_locator
 
         with self.assertRaises(RuntimeError):
-            core.musteri_kartina_don()
+            core._rol_buton_tikla(mock_frame, "OlmayanButon", lambda m: None, birincil_zaman_asimi=100)
 
 
 if __name__ == "__main__":
-    # Test raporları klasörünü temizle
-    import shutil
     test_klasor = Path("test_raporlar")
     if test_klasor.exists():
         shutil.rmtree(test_klasor)
 
     print("=" * 60)
-    print("  LUCA MIZAN OTOMASYON - UNIT TESTLER")
+    print("  LUCA MIZAN OTOMASYON - KAPSAMLI TESTLER")
     print("=" * 60)
     print()
 
-    # Testleri çalıştır
     unittest.main(verbosity=2)
