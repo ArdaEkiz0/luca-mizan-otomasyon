@@ -1435,6 +1435,18 @@ class TestMizanTarihAraligi(unittest.TestCase):
         self.assertIsNotNone(dosya)
         self.assertIn("ALİ BACAK_Mizan_2026.xlsx", str(dosya))
 
+    def test_tarih_normalize_farkli_formatlar(self):
+        """Tarih girişleri GG/AA/YYYY formatına çevrilmeli."""
+        core = LucaOtomasyonCore("1", "a", "b")
+
+        self.assertEqual(core._tarih_normalize("01/01/2026"), "01/01/2026")
+        self.assertEqual(core._tarih_normalize("01.01.2026"), "01/01/2026")
+        self.assertEqual(core._tarih_normalize("01-01-2026"), "01/01/2026")
+        self.assertEqual(core._tarih_normalize("01012026"), "01/01/2026")
+        self.assertEqual(core._tarih_normalize("1.1.2026"), "01/01/2026")
+        self.assertEqual(core._tarih_normalize(""), "")
+        self.assertEqual(core._tarih_normalize("  31/12/2026  "), "31/12/2026")
+
 
 if __name__ == "__main__":
     test_klasor = Path("test_raporlar")

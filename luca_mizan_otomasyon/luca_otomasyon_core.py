@@ -1407,6 +1407,28 @@ class LucaOtomasyonCore:
             log(f"  HATA: '{kisa_ad}' müşteri sayfası açılamadı! "
                 f"URL: {self.dashboard.url[:80]}")
 
+    def _tarih_normalize(self, tarih: str) -> str:
+        """Kullanıcı girişini GG/AA/YYYY formatına çevirir.
+
+        Kabul edilen girişler: 01/01/2026, 01.01.2026, 01-01-2026,
+        01012026, 1.1.2026. Boş/geçersiz ise boş döner.
+        """
+        if not tarih:
+            return ""
+        t = tarih.strip()
+        # GGAAYYYY (8 basamak, ayraçsız)
+        if t.isdigit() and len(t) == 8:
+            return f"{t[0:2]}/{t[2:4]}/{t[4:8]}"
+        # GG.AA.YYYY / GG-AA-YYYY / GG/AA/YYYY
+        for ayrac in (".", "-", "/"):
+            parcalar = [p for p in t.split(ayrac) if p]
+            if len(parcalar) == 3 and len(parcalar[2]) == 4:
+                gun = parcalar[0].zfill(2)
+                ay = parcalar[1].zfill(2)
+                yil = parcalar[2]
+                return f"{gun}/{ay}/{yil}"
+        return tarih
+
     def _filtreleri_uygula(self, log: LogFn = _sessiz_log) -> None:
         """Müşteri listesi sayfasında Yıl/Sınıf filtrelerini uygula.
 
@@ -1561,6 +1583,10 @@ class LucaOtomasyonCore:
             bitis: (Opsiyonel) GG/AA/YYYY formatında bitiş tarihi.
                 Boş bırakılırsa dönem sonuna (ör. 31/12/2026) kadar alınır.
         """
+        # Tarih formatını normalize et: kullanıcı 01.01.2026 / 01-01-2026 /
+        # 01012026 / 1.1.2026 gibi girmiş olsa da GG/AA/YYYY haline getir.
+        baslangic = self._tarih_normalize(baslangic)
+        bitis = self._tarih_normalize(bitis)
         if self.dashboard is None:
             raise RuntimeError("Önce baslat_ve_filtrele() ve musteri_sec() çağrılmalı.")
 
@@ -1708,8 +1734,13 @@ class LucaOtomasyonCore:
         # Boş bırakılırsa dönemin tamamı (ör. 01/01/2026 - 31/12/2026) alınır.
         if baslangic or bitis:
             log(f"Tarih aralığı uygulanıyor: {baslangic or 'başlangıç'} - {bitis or 'bitiş'}...")
+            # NOT: Playwright'ın evaluate(expression, arg) metodu TEK argüman alır.
+            # İki ayrı değeri liste olarak geçemeyiz (JS'te son=undefined olur);
+            # bu yüzden tek bir sözlük olarak gönderiyoruz.
             tarih_ayar_js = """
-                (ilk, son) => {
+                (veri) => {
+                    const ilk = veri.ilk || '';
+                    const son = veri.son || '';
                     const sonuc = {ilk: [], son: []};
                     const ayarla = (alanAd, deger, tip) => {
                         if (!deger) return;
@@ -1745,7 +1776,7 @@ class LucaOtomasyonCore:
                 }
             """
             try:
-                tarih_sonuc = mizan_frame.evaluate(tarih_ayar_js, [baslangic, bitis])
+                tarih_sonuc = mizan_frame.evaluate(tarih_ayar_js, {"ilk": baslangic, "son": bitis})
                 log(f"  Tarih alanları: {tarih_sonuc}")
             except Exception as e:
                 log(f"  UYARI: Tarih alanları doldurulamadı: {str(e)[:120]}")
