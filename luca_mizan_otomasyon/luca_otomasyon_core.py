@@ -1100,7 +1100,20 @@ class LucaOtomasyonCore:
         mevcut_index = combo.evaluate("el => el.selectedIndex")
         if mevcut_index != secili:
             combo.select_option(index=secili)
-            top_frame.wait_for_timeout(1500)  # loadDonem() AJAX'ı dönemleri doldursun
+            # Luca'nın onchange="loadDonem();showButton();" handler'ı bazen
+            # Playwright'ın select_option'ı ile tetiklenmez. Manuel olarak
+            # change event'i fırlatarak dönemlerin yüklenmesini garantile.
+            try:
+                combo.evaluate(
+                    """() => {
+                        const el = document.getElementById('SirketCombo');
+                        if (el) el.dispatchEvent(new Event('change', {bubbles: true}));
+                        return true;
+                    }"""
+                )
+            except Exception:
+                pass
+            top_frame.wait_for_timeout(2500)  # loadDonem() AJAX'ı dönemleri doldursun
             log(f"  SirketCombo'dan '{secilen_metin}' seçildi.")
         else:
             log(f"  '{secilen_metin}' zaten seçili.")
@@ -1108,13 +1121,14 @@ class LucaOtomasyonCore:
         # Dönem combo'su — _son_yil içeren (ör. 2026) dönemi seç
         try:
             donem = top_frame.locator("#DonemCombo")
-            # Not: wait_for_selector Frame'de vardır, Locator'da wait_for kullanılır.
-            try:
-                donem.wait_for(state="visible", timeout=10000)
-            except Exception:
-                pass
-            hedef = str(self._son_yil)
+            # Dönem seçeneklerinin YÜKLENMESİNİ bekle (AJAX dolduruyor)
             secildi = False
+            for _ in range(20):  # ~10 sn
+                d_adet = donem.locator("option").count()
+                if d_adet > 1:
+                    break
+                top_frame.wait_for_timeout(500)
+            hedef = str(self._son_yil)
             d_adet = donem.locator("option").count()
             for i in range(d_adet):
                 try:
@@ -1129,6 +1143,13 @@ class LucaOtomasyonCore:
             if not secildi and d_adet > 1:
                 donem.select_option(index=1)
                 log("  Dönem eşleşmedi, ilk dönem seçildi.")
+            elif not secildi:
+                log("  UYARI: Dönem seçenekleri henüz yüklenmedi, tekrar bekleniyor...")
+                top_frame.wait_for_timeout(2000)
+                d_adet = donem.locator("option").count()
+                if d_adet > 1:
+                    donem.select_option(index=1)
+                    log("  Dönem ikinci denemede seçildi.")
         except Exception as e:
             log(f"  UYARI: Dönem seçilemedi: {str(e)[:100]}")
 
@@ -1148,16 +1169,35 @@ class LucaOtomasyonCore:
             log(f"  formSubmit hatası: {str(e)[:120]}")
             return False
 
-        top_frame.wait_for_timeout(3000)
-        # Doğrula: TopFrameAction URL'i SIRKET_ID içeriyor mu?
+        # Doğrula: TopFrameAction URL'i SIRKET_ID içeriyor mu? (10 sn bekle)
+        for _ in range(20):
+            for cv in self.dashboard.frames:
+                try:
+                    if "TopFrameAction" in cv.url and "SIRKET_ID" in cv.url:
+                        log(f"  Firma değişti: {cv.url[:140]}")
+                        return True
+                except Exception:
+                    continue
+            top_frame.wait_for_timeout(500)
+        log("  UYARI: Firma değişimi doğrulanamadı — yeniden deneniyor...")
+        # Bir kez daha formSubmit dene (bazen ilk çağrı seçimi işlemez)
+        try:
+            top_frame.evaluate(
+                """() => {
+                    if (typeof formSubmit === 'function') { formSubmit(null, 0); return true; }
+                    return false;
+                }"""
+            )
+            top_frame.wait_for_timeout(3000)
+        except Exception:
+            pass
         for cv in self.dashboard.frames:
             try:
                 if "TopFrameAction" in cv.url and "SIRKET_ID" in cv.url:
-                    log(f"  Firma değişti: {cv.url[:140]}")
+                    log(f"  Firma değişti (2. deneme): {cv.url[:140]}")
                     return True
             except Exception:
                 continue
-        log("  Firma değişimi doğrulanamadı ama devam ediliyor.")
         return True
 
     def musteri_sec(self, kisa_ad: str, log: LogFn = _sessiz_log) -> None:
