@@ -1,26 +1,20 @@
-# Gizli bilgiler
-.env
-
-# Python
+# Sanal ortam
 venv/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-pip-log.txt
 
-# Çıktılar
+# Kullanıcı verileri
+.env
 raporlar/
 otomasyon_log.txt
+kesfet_raporu.txt
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# PyInstaller çıktıları
+build/
+dist/
 
-# OS
-Thumbs.db
-Desktop.ini
-.DS_Store
+# Python
+__pycache__/
+*.pyc
+
+# Teşhis araçları (kalıcı değil)
+luca_kesfet.py
+Kesfet_Baslat.bat
