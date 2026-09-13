@@ -178,6 +178,10 @@
         <div class="bos-liste">Veri yok.</div>
       </div>
     </div>
+    <div style="padding:10px 0; display:flex; align-items:center; gap:10px; justify-content:space-between;">
+      <span id="versiyonBilgi" style="font-size:12px; color:var(--metin-soluk);">v0.0.0</span>
+      <button class="btn btn-yesil btn-kucuk" id="guncelleBtn" onclick="updateApp()" style="display:none;">🔄 Güncelle</button>
+    </div>
   </section>
 
   <!-- Dashboard Ac butonu -->
@@ -214,8 +218,8 @@
   </section>
 
   <footer class="alt-bilgi">
-    Luca Mizan Raporu Otomasyonu &middot; v3.1 &middot; Developer: Arda M. Ekiz
-</footer>
+    Luca Mizan Raporu Otomasyonu &middot; v<span id="versiyon">3.1</span> &middot; Developer: Arda M. Ekiz
+  </footer>
 </div>
 
 <div class="toast-sarici" id="toastSarici"></div>

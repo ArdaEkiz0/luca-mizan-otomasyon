@@ -198,3 +198,25 @@ class TestEntegrasyon:
         finally:
             os.chdir(orig)
             shutil.rmtree(tmpdir)
+
+
+# --- Update Function Tests ---
+class TestGuncellemeIslem:
+    def test_guncelle_mesaj(self):
+        from guncelleme_kontrolu import guncellememi_kontrol_et
+        sonuc = guncellememi_kontrol_et()
+        assert "mesaj" in sonuc
+        assert isinstance(sonuc["mesaj"], str)
+        assert len(sonuc["mesaj"]) > 0
+
+    def test_guncelle_fonksiyon_yok(self):
+        from guncelleme_kontrolu import guncelle
+        sonuc = guncelle()
+        assert "ok" in sonuc
+        assert "guncellendi" in sonuc
+        assert "mesaj" in sonuc
+
+    def test_simdiki_surum_donuyor(self):
+        from guncelleme_kontrolu import simdiki_surum
+        surum = simdiki_surum()
+        assert surum != ""

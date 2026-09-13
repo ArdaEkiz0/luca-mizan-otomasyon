@@ -326,6 +326,8 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._kontrol_export_pdf(veri)
         elif yol == "/api/guncelleme":
             self._guncelleme_kontrol()
+        elif yol == "/api/guncelleme/guncelle":
+            self._guncelleme_yap()
         elif yol == "/api/kontrol/dashboard":
             self._kontrol_dashboard()
         elif yol == "/api/kontrol/arama":
@@ -780,12 +782,24 @@ class ApiHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})
 
+    def _guncelleme_yap(self) -> None:
+        try:
+            from guncelleme_kontrolu import guncelle
+            sonuc = guncelle()
+            self._json(sonuc)
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+
     def _kontrol_dashboard(self) -> None:
         try:
             from veri_tabani import istatistik_getir, kontrol_sonuclari_getir
+            import guncelleme_kontrolu as gc
             ist = istatistik_getir()
             sonuclar = kontrol_sonuclari_getir(limit=50)
-            self._json({"ok": True, "istatistik": ist, "sonuclar": sonuclar})
+            surum = gc.simdiki_surum()
+            guncelleme = gc.guncellememi_kontrol_et()
+            self._json({"ok": True, "istatistik": ist, "sonuclar": sonuclar,
+                        "surum": surum, "guncelleme": guncelleme})
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})
 
