@@ -979,6 +979,12 @@ class LucaGUI(ctk.CTk):
             messagebox.showinfo("Bilgi", "Kontrol edilecek rapor yok.")
             return
 
+        try:
+            import mizan_kontrol as _mizan_mod
+        except ImportError as e:
+            messagebox.showerror("Hata", f"Kontrol modulu yuklenemedi: {e}\n\npip install openpyxl komutunu calistirin.")
+            return
+
         self._mesgul_baslat("Mizan raporlari kontrol ediliyor...")
         self.kontrol_sonuclari = []
         self.kontrol_filtreli = "tum"
