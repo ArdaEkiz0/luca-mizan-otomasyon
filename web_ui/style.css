@@ -375,12 +375,6 @@ body {
 .btn-filtre.aktif {
   background: var(--mor); color: #fff; border-color: var(--mor);
 }
-  color: var(--metin-soluk); cursor: pointer; transition: all 0.18s;
-}
-.btn-filtre:hover { background: rgba(124,58,237,0.15); color: var(--metin); }
-.btn-filtre.aktif {
-  background: var(--mor); color: #fff; border-color: var(--mor);
-}
 
 /* ---------- Log ---------- */
 .blok-log { display: flex; flex-direction: column; }
