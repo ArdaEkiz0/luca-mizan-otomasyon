@@ -76,6 +76,7 @@ function toastGoster(seviye, mesaj) {
 
 function logEkle(seviye, mesaj) {
   _loglar.push({ seviye, mesaj });
+  while (_loglar.length > 700) { _loglar.shift(); }
   const konsol = sec("logKonsol");
   if (!konsol) return;
   const satir = document.createElement("div");
