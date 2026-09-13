@@ -181,15 +181,9 @@ class LucaGUI(ctk.CTk):
         )
         baslik.grid(row=0, column=0, padx=20, pady=12, sticky="w")
 
-        _surum = "0.0.0"
-        try:
-            import guncelleme_kontrolu as _gc
-            _surum = _gc.simdiki_surum()
-        except Exception:
-            pass
         surum = ctk.CTkLabel(
             baslik_frame,
-            text=f"v{_surum}",
+            text="v2.0",
             font=ctk.CTkFont(size=12),
             text_color="#a0c4ff",
         )
