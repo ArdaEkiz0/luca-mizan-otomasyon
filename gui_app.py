@@ -63,6 +63,14 @@ def _thread_hata_yakala(args) -> None:
 
 threading.excepthook = _thread_hata_yakala
 
+_islem_hata_kodlari: dict[str, str] = {
+    "BAGLANTI": "Luca sunucusina baglanamadi",
+    "FRAME": "Sayfa frame bulunamadi",
+    "ROPOR": "Rapor olusturulamadi",
+    "KONTROL": "Kontrol islemi basarisiz",
+    "DOSYA": "Dosya hatasi",
+}
+
 # Tema ve renk paleti
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -466,10 +474,136 @@ class LucaGUI(ctk.CTk):
 
         self.indirilen_raporlar: list[dict] = []
 
+        # --- Mizan Kontrol ---
+        kontrol_frame = ctk.CTkFrame(self, fg_color=RENKLER["panel_arka"], corner_radius=10)
+        kontrol_frame.grid(row=5, column=0, padx=20, y=(5, 5), sticky="nsew")
+        self.grid_rowconfigure(5, weight=1)
+
+        kontrol_baslik_frame = ctk.CTkFrame(kontrol_frame, fg_color="transparent")
+        kontrol_baslik_frame.pack(fill="x", padx=15, pady=(10, 5))
+
+        ctk.CTkLabel(
+            kontrol_baslik_frame, text="Mizan Kontrolü",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=RENKLER["baslik"],
+        ).pack(side="left")
+
+        self.kontrol_butonlar = ctk.CTkFrame(kontrol_frame, fg_color="transparent")
+        self.kontrol_butonlar.pack(fill="x", padx=15, pady=(0, 5))
+
+        self.kontrol_btn = ctk.CTkButton(
+            self.kontrol_butonlar, text="Raporlari Kontrol Et", width=160,
+            fg_color=RENKLER["buton_rapor"], hover_color=RENKLER["buton_rapor_hover"],
+            command=self._kontrol_raporlari, state="disabled",
+        )
+        self.kontrol_btn.pack(side="left", padx=(0, 8))
+
+        self.toplu_kontrol_btn = ctk.CTkButton(
+            self.kontrol_butonlar, text="Tum Raporlari Kontrol Et", width=180,
+            fg_color=RENKLER["buton_toplu"], hover_color=RENKLER["buton_toplu_hover"],
+            command=self._toplu_kontrol_raporlari, state="disabled",
+        )
+        self.toplu_kontrol_btn.pack(side="left", padx=(0, 8))
+
+        # Istatistik
+        ist_frame = ctk.CTkFrame(kontrol_frame, fg_color="transparent")
+        ist_frame.pack(fill="x", padx=15, pady=(0, 5))
+
+        self.ist_toplam = ctk.CTkLabel(ist_frame, text="Toplam: 0", font=ctk.CTkFont(size=11))
+        self.ist_toplam.pack(side="left", padx=4)
+        self.ist_ok = ctk.CTkLabel(ist_frame, text="OK: 0", font=ctk.CTkFont(size=11), text_color=RENKLER["durum_basarili"])
+        self.ist_ok.pack(side="left", padx=4)
+        self.ist_hata = ctk.CTkLabel(ist_frame, text="HATA: 0", font=ctk.CTkFont(size=11), text_color=RENKLER["durum_hata"])
+        self.ist_hata.pack(side="left", padx=4)
+        self.ist_uyari = ctk.CTkLabel(ist_frame, text="UYARI: 0", font=ctk.CTkFont(size=11), text_color="#facc15")
+        self.ist_uyari.pack(side="left", padx=4)
+
+        # Filtre
+        filtre_bar = ctk.CTkFrame(kontrol_frame, fg_color="transparent")
+        filtre_bar.pack(fill="x", padx=15, pady=(0, 5))
+
+        ctk.CTkLabel(filtre_bar, text="Filtre:", text_color="#888888", font=ctk.CTkFont(size=10)).pack(side="left")
+        self.kontrol_filtre = ctk.StringVar(value="tum")
+        for txt, val in [("Tümü", "tum"), ("OK", "OK"), ("HATA", "HATA"), ("UYARI", "UYARI")]:
+            btn = ctk.CTkButton(
+                filtre_bar, text=txt, width=70, height=24,
+                fg_color="#3d3d3d" if val != "tum" else RENKLER["buton_rapor"],
+                hover_color="#4a4a4a",
+                command=lambda v=val: self._kontrol_filtrele(v),
+            )
+            btn.pack(side="left", padx=2)
+
+        ctk.CTkLabel(filtre_bar, text="Firma:", text_color="#888888", font=ctk.CTkFont(size=10)).pack(side="left", padx=(12, 4))
+        self.kontrol_arama = ctk.CTkEntry(filtre_bar, width=150, height=24, placeholder_text="Firma ara...")
+        self.kontrol_arama.bind("<KeyRelease>", lambda e: self._kontrol_filtrele(self.kontrol_filtre.get()))
+        self.kontrol_arama.pack(side="left", padx=(0, 8))
+
+        ctk.CTkLabel(filtre_bar, text="Tarix:", text_color="#888888", font=ctk.CTkFont(size=10)).pack(side="left")
+        self.kontrol_tarix_entry = ctk.CTkEntry(filtre_bar, width=130, height=24, placeholder_text="GGGG (yil)")
+        self.kontrol_tarix_entry.bind("<KeyRelease>", lambda e: self._kontrol_filtrele(self.kontrol_filtre.get()))
+        self.kontrol_tarix_entry.pack(side="left", padx=(4, 8))
+
+        # Export butonlari
+        export_bar = ctk.CTkFrame(kontrol_frame, fg_color="transparent")
+        export_bar.pack(fill="x", padx=15, pady=(0, 5))
+
+        ctk.CTkButton(export_bar, text="JSON İndir", width=100, height=24,
+                      fg_color="#28a745", hover_color="#218838",
+                      command=self._kontrol_export_json).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(export_bar, text="CSV İndir", width=100, height=24,
+                      fg_color="#17a2b8", hover_color="#138496",
+                      command=self._kontrol_export_csv).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(export_bar, text="PDF İndir", width=100, height=24,
+                      fg_color="#dc3545", hover_color="#c82333",
+                      command=self._kontrol_export_pdf).pack(side="left", padx=(0, 4))
+
+        # Sonuclar tablosu
+        kontrol_tablo_frame = ctk.CTkFrame(kontrol_frame, fg_color="transparent")
+        kontrol_tablo_frame.pack(fill="both", expand=True, padx=15, pady=(0, 10))
+
+        stil3 = ttk.Style()
+        stil3.configure("Kontrol.Treeview",
+                        background="#1e1e1e", foreground="#d4d4d4",
+                        fieldbackground="#1e1e1e", rowheight=24,
+                        font=("Consolas", 9))
+        stil3.configure("Kontrol.Treeview.Heading",
+                        background="#3d3d3d", foreground="#ffffff",
+                        font=("Segoe UI", 9, "bold"))
+        stil3.map("Kontrol.Treeview", background=[("selected", "#1a8cff")])
+
+        kontrol_kolonlar = ("dosya", "durum", "ozet", "hata", "uyari", "firma")
+        self.kontrol_tablo = ttk.Treeview(
+            kontrol_tablo_frame, columns=kontrol_kolonlar, show="headings",
+            height=5, selectmode="browse", style="Kontrol.Treeview",
+        )
+        self.kontrol_tablo.heading("dosya", text="Dosya")
+        self.kontrol_tablo.heading("durum", text="Durum")
+        self.kontrol_tablo.heading("ozet", text="Özet")
+        self.kontrol_tablo.heading("hata", text="Hata")
+        self.kontrol_tablo.heading("uyari", text="Uyari")
+        self.kontrol_tablo.heading("firma", text="Firma")
+        self.kontrol_tablo.column("dosya", width=200)
+        self.kontrol_tablo.column("durum", width=60)
+        self.kontrol_tablo.column("ozet", width=200)
+        self.kontrol_tablo.column("hata", width=40)
+        self.kontrol_tablo.column("uyari", width=40)
+        self.kontrol_tablo.column("firma", width=120)
+        self.kontrol_tablo.pack(side="left", fill="both", expand=True)
+        self.kontrol_tablo.bind("<Double-1>", lambda e: self._kontrol_detay_goster())
+        self.kontrol_tablo.tag_configure("ok", foreground="#28a745")
+        self.kontrol_tablo.tag_configure("hata", foreground="#dc3545")
+
+        kaydirma3 = ttk.Scrollbar(kontrol_tablo_frame, orient="vertical", command=self.kontrol_tablo.yview)
+        self.kontrol_tablo.configure(yscrollcommand=kaydirma3.set)
+        kaydirma3.pack(side="right", fill="y")
+
+        self.kontrol_sonuclari: list[dict] = []
+        self.kontrol_filtreli = "tum"
+
         # --- Log alani ---
         log_frame = ctk.CTkFrame(self, fg_color=RENKLER["panel_arka"], corner_radius=10)
-        log_frame.grid(row=5, column=0, padx=20, pady=(5, 16), sticky="nsew")
-        self.grid_rowconfigure(5, weight=1)
+        log_frame.grid(row=6, column=0, padx=20, y=(5, 16), sticky="nsew")
+        self.grid_rowconfigure(6, weight=1)
 
         log_baslik = ctk.CTkLabel(
             log_frame,
@@ -521,6 +655,8 @@ class LucaGUI(ctk.CTk):
         self.getir_btn.configure(state="disabled")
         self.rapor_btn.configure(state="disabled")
         self.toplu_rapor_btn.configure(state="disabled")
+        self.kontrol_btn.configure(state="disabled")
+        self.toplu_kontrol_btn.configure(state="disabled")
 
     def _mesgul_bitir(self, durum: str = "Hazir") -> None:
         self.calisiyor = False
@@ -532,6 +668,7 @@ class LucaGUI(ctk.CTk):
             if self.tablo.get_children():
                 self.toplu_rapor_btn.configure(state="normal")
                 self.rapor_btn.configure(state="normal")
+            self._kontrol_guncelle_butonlar()
 
         if "hata" in durum.lower():
             self.durum_label.configure(text_color=RENKLER["durum_hata"])
@@ -793,6 +930,185 @@ class LucaGUI(ctk.CTk):
         self.ac_btn.configure(state="disabled")
         self.klasor_btn.configure(state="disabled")
 
+    def _kontrol_guncelle_butonlar(self) -> None:
+        """Kontrol butonlarini rapor varligina gore gunceller."""
+        rapor_klasor = Path("raporlar")
+        if rapor_klasor.exists():
+            xlsx_sayisi = len(list(rapor_klasor.glob("*.xlsx")))
+            self.kontrol_btn.configure(state="normal" if xlsx_sayisi > 0 else "disabled")
+            self.toplu_kontrol_btn.configure(state="normal" if xlsx_sayisi > 0 else "disabled")
+        else:
+            self.kontrol_btn.configure(state="disabled")
+            self.toplu_kontrol_btn.configure(state="disabled")
+
+    def _kontrol_raporlari(self) -> None:
+        """Indirilen tum mizan raporlarini kontrol eder."""
+        if self.calisiyor:
+            return
+        rapor_klasor = Path("raporlar")
+        if not rapor_klasor.exists():
+            messagebox.showwarning("Uyari", "Raporlar klasoru bulunamadi.")
+            return
+        dosyalar = sorted(f for f in rapor_klasor.glob("*.xlsx") if "_KONTROL" not in f.name)
+        if not dosyalar:
+            messagebox.showinfo("Bilgi", "Kontrol edilecek rapor yok.")
+            return
+
+        self._mesgul_baslat("Mizan raporlari kontrol ediliyor...")
+        self.kontrol_sonuclari = []
+        self.kontrol_filtreli = "tum"
+        self._kontrol_tablosu_yenile()
+
+        def is_parcasi():
+            for dosya in dosyalar:
+                try:
+                    s = _mizan_mod.retry_islem(
+                        lambda d=dosya: _mizan_mod.mizan_kontrol(d),
+                        deneme_sayisi=3,
+                        bekleme_saniye=0.5,
+                    )
+                    self.olay_kuyrugu.put(("kontrol_sonuc", {
+                        "dosya": dosya.name,
+                        "durum": s.durum,
+                        "ozet": s.ozet,
+                        "hata_sayisi": s.hata_sayisi,
+                        "uyari_sayisi": s.uyari_sayisi,
+                        "firma": s.firma_adi,
+                        "ihlaller": [{"kural": i.kural_id, "hesap": i.hesap_kodu,
+                                       "ad": i.hesap_adi, "seviye": i.seviye, "mesaj": i.mesaj}
+                                      for i in s.ihlaller],
+                        "yol": str(dosya),
+                    }))
+                except Exception as e:
+                    hata_kodu = "KONTROL"
+                    mesaj = str(e)
+                    if "Dosya bulunamadi" in mesaj:
+                        hata_kodu = "DOSYA"
+                    elif "Baglant" in mesaj or "sunucu" in mesaj.lower():
+                        hata_kodu = "BAGLANTI"
+                    self.olay_kuyrugu.put(("kontrol_sonuc", {
+                        "dosya": dosya.name, "durum": "HATA",
+                        "ozet": f"{hata_kodu}: {mesaj}",
+                        "hata_sayisi": 1, "uyari_sayisi": 0, "firma": "", "ihlaller": [],
+                        "yol": str(dosya),
+                    }))
+            self.olay_kuyrugu.put(("kontrol_tamam"))
+
+        self._is_kuyrugu.put(is_parcasi)
+
+    def _toplu_kontrol_raporlari(self) -> None:
+        """Tum raporlari kontrol et onayi."""
+        self._kontrol_raporlari()
+
+    def _kontrol_tamamlandi(self) -> None:
+        """Kontrol tamamlandi istatistikleri gunceller."""
+        toplam = len(self.kontrol_sonuclari)
+        ok = sum(1 for s in self.kontrol_sonuclari if s["durum"] == "OK")
+        hata = sum(1 for s in self.kontrol_sonuclari if s["durum"] == "HATA")
+        uyari = sum(1 for s in self.kontrol_sonuclari if s["durum"] == "UYARI")
+        self.ist_toplam.configure(text=f"Toplam: {toplam}")
+        self.ist_ok.configure(text=f"OK: {ok}")
+        self.ist_hata.configure(text=f"HATA: {hata}")
+        self.ist_uyari.configure(text=f"UYARI: {uyari}")
+        self._mesgul_bitir(f"Kontrol tamamlandi ({toplam} dosya)")
+        self._kontrol_filtrele(self.kontrol_filtreli)
+
+    def _kontrol_sonuc_ekle(self, sonuc: dict) -> None:
+        """Tek bir kontrol sonucunu ekler."""
+        self.kontrol_sonuclari.append(sonuc)
+
+    def _kontrol_tablosu_yenile(self) -> None:
+        """Filtreli tabloyu gunceller."""
+        for cocuk in self.kontrol_tablo.get_children():
+            self.kontrol_tablo.delete(cocuk)
+
+        filtre = self.kontrol_filtreli
+        arama = self.kontrol_arama.get().strip().lower() if hasattr(self, 'kontrol_arama') else ""
+        tarix = self.kontrol_tarix_entry.get().strip() if hasattr(self, 'kontrol_tarix_entry') else ""
+
+        filtrelenen = self.kontrol_sonuclari
+        if filtre != "tum":
+            filtrelenen = [s for s in filtrelenen if s["durum"] == filtre]
+        if arama:
+            filtrelenen = [s for s in filtrelenen if arama in s.get("firma", "").lower() or arama in s["dosya"].lower()]
+        if tarix:
+            filtrelenen = [s for s in filtrelenen if tarix in s["dosya"]]
+
+        for s in filtrelenen:
+            tag = "ok" if s["durum"] == "OK" else "hata"
+            self.kontrol_tablo.insert("", "end", values=(
+                s["dosya"], s["durum"], s["ozet"], s["hata_sayisi"], s["uyari_sayisi"], s.get("firma", ""),
+            ), tags=(tag,))
+
+        if not filtrelenen:
+            self.kontrol_tablo.insert("", "end", values=("--", "--", "Filtreye eslesen kayit yok", "", "", ""))
+
+    def _kontrol_filtrele(self, filtre: str) -> None:
+        """Filtre uygular."""
+        self.kontrol_filtreli = filtre
+        self._kontrol_tablosu_yenile()
+
+    def _kontrol_detay_goster(self) -> None:
+        """Secili dosyanin detaylarini gosterir (messagebox)."""
+        secim = self.kontrol_tablo.selection()
+        if not secim:
+            return
+        degerler = self.kontrol_tablo.item(secim[0], "values")
+        dosya = degerler[0]
+        for s in self.kontrol_sonuclari:
+            if s["dosya"] == dosya and s.get("ihlaller"):
+                mesaj = f"=== {dosya} ===\n\n"
+                for ihlal in s["ihlaller"]:
+                    mesaj += f"[{ihlal['kural']}] {ihlal['hesap']} {ihlal['ad']}: {ihlal['mesaj']}\n"
+                messagebox.showinfo("Kontrol Detay", mesaj)
+                return
+        messagebox.showinfo("Kontrol Detay", f"{dosya}: Ihlal bulunamadi.")
+
+    def _kontrol_export(self, format: str) -> None:
+        """Filtreli sonuclari export eder."""
+        import mizan_kontrol as mk
+        from pathlib import Path as Path2
+
+        filtrelenen = [s for s in self.kontrol_sonuclari if s["durum"] != "OK" or self.kontrol_filtreli == "tum"]
+        if self.kontrol_filtreli != "tum":
+            filtrelenen = [s for s in self.kontrol_sonuclari if s["durum"] == self.kontrol_filtreli]
+        if not filtrelenen:
+            messagebox.showwarning("Uyari", "Export edilecek kayit yok.")
+            return
+
+        try:
+            rapor_klasor = Path2("raporlar")
+            for s in filtrelenen:
+                dosya_yol = None
+                for f in rapor_klasor.glob("*.xlsx"):
+                    if f.name == s["dosya"] and "_KONTROL" not in f.name:
+                        dosya_yol = f
+                        break
+                if dosya_yol is None:
+                    continue
+                s_obj = mk.mizan_kontrol(dosya_yol)
+                if format == "json":
+                    hedef = dosya_yol.with_suffix(".json")
+                    mk.kontrol_json_yaz(s_obj, hedef)
+                elif format == "csv":
+                    hedef = dosya_yol.with_suffix(".csv")
+                    mk.kontrol_csv_yaz(s_obj, hedef)
+                elif format == "pdf":
+                    hedef = dosya_yol.with_suffix("_KONTROL.pdf")
+                    mk.kontrol_pdf_yaz(s_obj, hedef)
+            messagebox.showinfo("Basarili", f"Export tamamlandi ({len(filtrelenen)} dosya).")
+        except Exception as e:
+            messagebox.showerror("Hata", f"Export basarisiz: {e}")
+
+    def _kontrol_export_json(self) -> None:
+        self._kontrol_export("json")
+
+    def _kontrol_export_csv(self) -> None:
+        self._kontrol_export("csv")
+
+    def _kontrol_export_pdf(self) -> None:
+        self._kontrol_export("pdf")
+
     def _kuyrugu_dinle(self) -> None:
         try:
             while True:
@@ -813,6 +1129,7 @@ class LucaGUI(ctk.CTk):
                     else:
                         self.toplu_rapor_btn.configure(state="normal")
                     self._mesgul_bitir(f"{len(musteriler)} musteri listelendi.")
+                    self._kontrol_guncelle_butonlar()
 
                 elif tur == "rapor_tamam":
                     dosya = olay[1]
@@ -820,12 +1137,13 @@ class LucaGUI(ctk.CTk):
                         self._log(f"BASARILI: Rapor kaydedildi -> {dosya}")
                         self._rapor_ekle(dosya)
                         self._mesgul_bitir("Rapor olusturuldu.")
+                        self._kontrol_guncelle_butonlar()
                     else:
-                        self._mesgul_bitir("Rapor kuyruka alindi (Rapor Takip'ten indirin).")
+                        self._mesgul_bitir("Rapor kuyruga alindi (Rapor Takip'ten indirin).")
 
                 elif tur == "toplu_rapor_tamam":
                     sonuclar = olay[1]
-                    basarili = sum(1 for s in sonuclar if s["durum"] in ("basarili", "kuyruka alindi"))
+                    basarili = sum(1 for s in sonuclar if s["durum"] in ("basarili", "kuyruga alindi"))
                     basarisiz = sum(1 for s in sonuclar if s["durum"] == "hatali")
                     self._log(f"\nTOPLU RAPOR SONUCU: {basarili} basarili, {basarisiz} hatali")
                     for s in sonuclar:
@@ -836,6 +1154,13 @@ class LucaGUI(ctk.CTk):
                             if s.get("dosya_yolu"):
                                 self._rapor_ekle(s["dosya_yolu"])
                     self._mesgul_bitir(f"Toplu rapor tamamlandi ({basarili} basarili, {basarisiz} hatali)")
+                    self._kontrol_guncelle_butonlar()
+
+                elif tur == "kontrol_sonuc":
+                    self._kontrol_sonuc_ekle(olay[1])
+
+                elif tur == "kontrol_tamam":
+                    self._kontrol_tamamlandi()
 
                 elif tur == "hata":
                     mesaj, ayrinti = olay[1], olay[2]
@@ -850,7 +1175,7 @@ class LucaGUI(ctk.CTk):
         except queue.Empty:
             pass
         except Exception as e:
-            _dosyaya_log_yaz(f"KUYRUK ISLEME HATASI: {e}\n{traceback.format_exc()}")
+            _dosyaya_log_yaz(f"KUYRUG ISLEME HATASI: {e}\n{traceback.format_exc()}")
         finally:
             self.after(120, self._kuyrugu_dinle)
 

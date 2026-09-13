@@ -134,57 +134,66 @@ def _kod_esles(kod: str, hedef: str) -> bool:
 # --- Excel dosya okuma ---
 
 def _dosya_oku(dosya_yolu: Path):
-    wb = openpyxl.load_workbook(dosya_yolu, data_only=True)
-    ws = wb.active
-    satirlar = []
-    firma = ""
-    donem = ""
-    baslik = False
+    wb = None
+    try:
+        wb = openpyxl.load_workbook(dosya_yolu, data_only=True)
+        ws = wb.active
+        satirlar = []
+        firma = ""
+        donem = ""
+        baslik = False
 
-    for row in ws.iter_rows(values_only=True):
-        if not row:
-            continue
-        ilk = str(row[0]).strip() if row[0] is not None else ""
-        ikinci = str(row[1]).strip() if len(row) > 1 and row[1] is not None else ""
-        ilk_ust = (ilk.upper()
-                   .replace("\u0131", "I").replace("\u00f6", "O").replace("\u00fc", "U")
-                   .replace("\u00c7", "C").replace("\u015e", "S").replace("\u011e", "G"))
-
-        if baslik:
-            kod = ilk
-            if not kod:
+        for row in ws.iter_rows(values_only=True):
+            if not row:
                 continue
-            satirlar.append({
-                "kod": kod,
-                "ad": ikinci,
-                "borc": _sayi(row[2] if len(row) > 2 else None),
-                "alacak": _sayi(row[3] if len(row) > 3 else None),
-                "borc_bakiye": _sayi(row[4] if len(row) > 4 else None),
-                "alacak_bakiye": _sayi(row[5] if len(row) > 5 else None),
-            })
-            continue
+            ilk = str(row[0]).strip() if row[0] is not None else ""
+            ikinci = str(row[1]).strip() if len(row) > 1 and row[1] is not None else ""
+            ilk_ust = (ilk.upper()
+                       .replace("\u0131", "I").replace("\u00f6", "O").replace("\u00fc", "U")
+                       .replace("\u00c7", "C").replace("\u015e", "S").replace("\u011e", "G"))
 
-        if ilk_ust == "HESAP KODU":
-            baslik = True
-            continue
-        if ilk_ust == "MIZAN":
-            continue
-        if "DONEM" in ilk_ust:
-            donem = ikinci
-            continue
-        if "TARIH" in ilk_ust:
-            continue
-        if not firma and (ilk or ikinci):
+            if baslik:
+                kod = ilk
+                if not kod:
+                    continue
+                satirlar.append({
+                    "kod": kod,
+                    "ad": ikinci,
+                    "borc": _sayi(row[2] if len(row) > 2 else None),
+                    "alacak": _sayi(row[3] if len(row) > 3 else None),
+                    "borc_bakiye": _sayi(row[4] if len(row) > 4 else None),
+                    "alacak_bakiye": _sayi(row[5] if len(row) > 5 else None),
+                })
+                continue
+
+            if ilk_ust == "HESAP KODU":
+                baslik = True
+                continue
+            if ilk_ust == "MIZAN":
+                continue
+            if "DONEM" in ilk_ust:
+                donem = ikinci
+                continue
+            if "TARIH" in ilk_ust:
+                continue
+            if not firma and (ilk or ikinci):
+                try:
+                    float(ilk.replace(".", "").replace(",", "."))
+                    continue
+                except ValueError:
+                    pass
+                firma = ilk or ikinci
+                continue
+
+        wb.close()
+        return satirlar, firma, donem
+    except Exception:
+        if wb is not None:
             try:
-                float(ilk.replace(".", "").replace(",", "."))
-                continue
-            except ValueError:
+                wb.close()
+            except Exception:
                 pass
-            firma = ilk or ikinci
-            continue
-
-    wb.close()
-    return satirlar, firma, donem
+        raise
 
 
 def _dosya_yapisi_kontrol(dosya_yolu: Path) -> tuple[bool, str]:
@@ -193,12 +202,25 @@ def _dosya_yapisi_kontrol(dosya_yolu: Path) -> tuple[bool, str]:
         return False, "Dosya bulunamadi"
     if not dosya_yolu.suffix.lower() in (".xlsx", ".xls"):
         return False, "Dosya formati desteklenmiyor (sadece .xlsx/.xls)"
+    if dosya_yolu.stat().st_size == 0:
+        return False, "Dosya bos"
     try:
         wb = openpyxl.load_workbook(dosya_yolu, data_only=True, read_only=True)
         wb.close()
         return True, "OK"
+    except openpyxl.utils.exceptions.InvalidFileException:
+        return False, "Gecersiz Excel dosyasi"
+    except PermissionError:
+        return False, "Dosya kilitli (Diger program acik olabilir)"
     except Exception as e:
         return False, f"Dosya acilamadi: {e}"
+
+
+_KONTROL_HATA_KODLARI: dict[str, str] = {
+    "DOSYA": "Dosya hatasi — kontrol edilemedi",
+    "OKU": "Okuma hatasi — dosya içeriği okunamadi",
+    "VERI": "Veri hatasi — dosyada gecerli mizan verisi yok",
+}
 
 
 # --- Kontrol motoru ---
@@ -455,6 +477,34 @@ def _istatistik_guncelle(kural_id: str, seviye: str, kod: str, ad: str) -> None:
 def kural_istatistikleri() -> dict[str, KuralIstatistik]:
     """Tum kural istatistiklerini dondurur."""
     return dict(_motor._istatistikler)
+
+
+def retry_islem(islem, deneme_sayisi: int = 3, bekleme_saniye: float = 1.0):
+    """Bir islemi belirtilen sayida deneme ile yapar.
+
+    Args:
+        islem: Calistirilacak fonksiyon
+        deneme_sayisi: Deneme sayisi (varsayilan 3)
+        bekleme_saniye: Denemeler arasi bekleme suresi (saniye)
+
+    Returns:
+        islem() dondurdugu deger
+
+    Raises:
+        Son denemedeki hata
+    """
+    import time
+    son_hata = None
+    for deneme in range(1, deneme_sayisi + 1):
+        try:
+            return islem()
+        except Exception as e:
+            son_hata = e
+            if deneme < deneme_sayisi:
+                logger.warning("Deneme %d/%d basarisiz: %s", deneme, deneme_sayisi, e)
+                time.sleep(bekleme_saniye * deneme)
+    logger.error("Tum denemeler basarisiz: %s", son_hata)
+    raise son_hata
 
 
 def kural_istatistik_yaz(hedef: Path | None = None) -> Path:

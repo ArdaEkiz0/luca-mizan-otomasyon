@@ -1610,6 +1610,184 @@ class TestMizanKontrol(unittest.TestCase):
         self.assertGreater(hedef.stat().st_size, 0)
 
 
+class TestMizanKontrolIleri(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _yaz_mizan(self, satirlar: list) -> Path:
+        import openpyxl
+        from openpyxl import Workbook
+        dosya = self.tmp / "mizan.xlsx"
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["MIZAN"])
+        ws.append(["TEST FIRMA"])
+        ws.append(["DONEM :", "01/01/2026-31/12/2026"])
+        ws.append(["TARIH ARALIGI :", "01/01/2026-31/12/2026"])
+        ws.append([])
+        ws.append(["HESAP KODU", "HESAP ADI", "BORC", "ALACAK", "BORC BAKIYESI", "ALACAK BAKIYESI"])
+        for s in satirlar:
+            ws.append(s)
+        wb.save(dosya)
+        return dosya
+
+    def test_dosya_yok_hata(self):
+        import mizan_kontrol
+        dosya = self.tmp / "yok.xlsx"
+        s = mizan_kontrol.mizan_kontrol(dosya)
+        self.assertEqual(s.durum, "HATA")
+        self.assertTrue(any(i.kural_id == "DOSYA" for i in s.ihlaller))
+
+    def test_k10_hata_seviyesi(self):
+        import mizan_kontrol
+        dosya = self._yaz_mizan([
+            ["600", "YURTICI SATISLAR", 100.0, 0, 100.0, ""],
+        ])
+        s = mizan_kontrol.mizan_kontrol(dosya)
+        self.assertEqual(s.durum, "HATA")
+        k10 = [i for i in s.ihlaller if i.kural_id == "K10"]
+        self.assertTrue(k10)
+        self.assertEqual(k10[0].seviye, "HATA")
+
+    def test_kural_istatistikleri(self):
+        import mizan_kontrol
+        dosya = self._yaz_mizan([
+            ["100", "KASA", 100.0, 0, 100.0, ""],
+            ["101", "ALINAN", 50.0, 0, 50.0, ""],
+        ])
+        s = mizan_kontrol.mizan_kontrol(dosya)
+        ist = mizan_kontrol.kural_istatistikleri()
+        self.assertIsInstance(ist, dict)
+        self.assertIn("K1", ist)
+        self.assertGreaterEqual(ist["K1"].toplam, 1)
+        self.assertGreaterEqual(ist["K1"].hata, 1)
+
+    def test_kural_ekle(self):
+        import mizan_kontrol
+        motor = mizan_kontrol.MizanKontrolMotoru()
+        once = len(motor.kurallar)
+        motor.kural_ekle({"id": "K99", "tip": "ana_hesap", "kodlar": ["999"],
+                          "hedef_kolon": "alacak_bakiye", "seviye": "UYARI",
+                          "kosul": "Test kural"})
+        self.assertEqual(len(motor.kurallar), once + 1)
+        self.assertTrue(any(k["id"] == "K99" for k in motor.kurallar))
+
+    def test_kural_kaldir(self):
+        import mizan_kontrol
+        motor = mizan_kontrol.MizanKontrolMotoru()
+        once = len(motor.kurallar)
+        result = motor.kural_kaldir("K1")
+        self.assertTrue(result)
+        self.assertEqual(len(motor.kurallar), once - 1)
+        self.assertFalse(any(k["id"] == "K1" for k in motor.kurallar))
+
+    def test_kural_kaldir_olmadi(self):
+        import mizan_kontrol
+        motor = mizan_kontrol.MizanKontrolMotoru()
+        once = len(motor.kurallar)
+        result = motor.kural_kaldir("XXX")
+        self.assertFalse(result)
+        self.assertEqual(len(motor.kurallar), once)
+
+    def test_kontrol_json_yaz(self):
+        import mizan_kontrol
+        dosya = self._yaz_mizan([["100", "KASA", 100.0, 0, 100.0, ""]])
+        s = mizan_kontrol.mizan_kontrol(dosya)
+        hedef = self.tmp / "sonuc.json"
+        mizan_kontrol.kontrol_json_yaz(s, hedef)
+        self.assertTrue(hedef.exists())
+        self.assertGreater(hedef.stat().st_size, 0)
+        import json
+        data = json.loads(hedef.read_text(encoding="utf-8"))
+        self.assertIn("dosya_adi", data)
+        self.assertIn("durum", data)
+        self.assertIn("ihlaller", data)
+
+    def test_kontrol_csv_yaz(self):
+        import mizan_kontrol
+        dosya = self._yaz_mizan([["100", "KASA", 100.0, 0, 100.0, ""]])
+        s = mizan_kontrol.mizan_kontrol(dosya)
+        hedef = self.tmp / "sonuc.csv"
+        mizan_kontrol.kontrol_csv_yaz(s, hedef)
+        self.assertTrue(hedef.exists())
+        self.assertGreater(hedef.stat().st_size, 0)
+        icerik = hedef.read_text(encoding="utf-8-sig")
+        self.assertIn("Kural ID", icerik)
+        self.assertIn("Hesap Kodu", icerik)
+
+    def test_kontrol_pdf_yaz(self):
+        import mizan_kontrol
+        dosya = self._yaz_mizan([["100", "KASA", 100.0, 0, 100.0, ""]])
+        s = mizan_kontrol.mizan_kontrol(dosya)
+        hedef = self.tmp / "sonuc_KONTROL.pdf"
+        mizan_kontrol.kontrol_pdf_yaz(s, hedef)
+        self.assertTrue(hedef.exists())
+        self.assertGreater(hedef.stat().st_size, 0)
+
+    def test_retry_islem_basarili(self):
+        import mizan_kontrol
+        sayac = [0]
+        def islem():
+            sayac[0] += 1
+            return sayac[0]
+        sonuc = mizan_kontrol.retry_islem(islem, deneme_sayisi=3)
+        self.assertEqual(sonuc, 1)
+        self.assertEqual(sayac[0], 1)
+
+    def test_retry_islem_basarisiz(self):
+        import mizan_kontrol
+        sayac = [0]
+        def islem():
+            sayac[0] += 1
+            raise ValueError(f"deneme {sayac[0]}")
+        with self.assertRaises(ValueError):
+            mizan_kontrol.retry_islem(islem, deneme_sayisi=3, bekleme_saniye=0.01)
+        self.assertEqual(sayac[0], 3)
+
+    def test_retry_islem_tekrarla(self):
+        import mizan_kontrol
+        sayac = [0]
+        def islem():
+            sayac[0] += 1
+            if sayac[0] < 3:
+                raise ValueError("gecici hata")
+            return "basarili"
+        sonuc = mizan_kontrol.retry_islem(islem, deneme_sayisi=3, bekleme_saniye=0.01)
+        self.assertEqual(sonuc, "basarili")
+        self.assertEqual(sayac[0], 3)
+
+    def test_kontrol_istatistik_detay(self):
+        import mizan_kontrol
+        dosya = self._yaz_mizan([
+            ["100", "KASA", 0, 500.0, 0, 500.0],
+            ["191", "DEVREDEN", 0, 0, 5000.0, ""],
+        ])
+        s = mizan_kontrol.mizan_kontrol(dosya)
+        self.assertEqual(s.hata_sayisi, 2)
+        self.assertEqual(s.uyari_sayisi, 0)
+        self.assertEqual(s.durum, "HATA")
+        self.assertTrue(any(i.kural_id == "K1" for i in s.ihlaller))
+        self.assertTrue(any(i.kural_id == "K12" for i in s.ihlaller))
+        self.assertEqual(len(s.ihlaller), 2)
+
+    def test_kural_istatistik_yaz(self):
+        import mizan_kontrol
+        dosya = self._yaz_mizan([["100", "KASA", 100.0, 0, 100.0, ""]])
+        s = mizan_kontrol.mizan_kontrol(dosya)
+        hedef = self.tmp / "istatistik.xlsx"
+        mizan_kontrol.kural_istatistik_yaz(hedef)
+        self.assertTrue(hedef.exists())
+        self.assertGreater(hedef.stat().st_size, 0)
+
+    def test_kural_istatistik_yaz_varsayilan(self):
+        import mizan_kontrol
+        mizan_kontrol.kural_istatistik_yaz()
+
+
 if __name__ == "__main__":
     test_klasor = Path("test_raporlar")
     if test_klasor.exists():
