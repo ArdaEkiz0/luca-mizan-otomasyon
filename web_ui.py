@@ -1006,7 +1006,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             if not firma and not durum:
                 self._json({"ok": True, "sonuclar": []})
                 return
-            sonuclar = kontrol_sonuclari_getir(firma=firma or None, durum=durum or None or None)
+            sonuclar = kontrol_sonuclari_getir(firma=firma or None, durum=durum or None)
             self._json({"ok": True, "sonuclar": sonuclar})
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})
