@@ -796,13 +796,23 @@ class ApiHandler(BaseHTTPRequestHandler):
     def _kontrol_dashboard(self) -> None:
         try:
             from veri_tabani import istatistik_getir, kontrol_sonuclari_getir
+            from mizan_kontrol import mizan_kontrol as _mk
             import guncelleme_kontrolu as gc
             ist = istatistik_getir()
             sonuclar = kontrol_sonuclari_getir(limit=50)
-            surum = gc.simdiki_surum()
-            guncelleme = gc.guncellememi_kontrol_et()
+            kural_ist = ist.get("kurallar", {})
+            en_cok_hata_kural = sorted(kural_ist.items(), key=lambda x: x[1].get("hata", 0), reverse=True)[:5]
+            son_kontrol = None
+            if sonuclar:
+                sk = sonuclar[0]
+                son_kontrol = {
+                    "dosya_adi": sk.get("dosya_adi", ""),
+                    "durum": sk.get("durum", ""),
+                    "kontrol_tarihi": sk.get("kontrol_tarihi", ""),
+                }
             self._json({"ok": True, "istatistik": ist, "sonuclar": sonuclar,
-                        "surum": surum, "guncelleme": guncelleme})
+                        "surum": gc.simdiki_surum(), "guncelleme": gc.guncellememi_kontrol_et(),
+                        "kural_ist": en_cok_hata_kural, "son_kontrol": son_kontrol})
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})
 

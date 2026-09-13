@@ -494,3 +494,23 @@ body {
 .dash-son-durum.uyari { background: rgba(250,204,21,0.2); color: #facc15; }
 .dash-son-firma { flex: 1; font-weight: 600; }
 .dash-son-tarih { color: var(--metin-soluk); font-size: 11px; }
+.dash-son-hata, .dash-son-uyari { min-width: 28px; text-align: center; font-weight: 700; }
+.dash-son-hata { color: var(--kirmizi); }
+.dash-son-uyari { color: #facc15; }
+.dash-son-durum.ok .dash-son-hata, .dash-son-durum.hata .dash-son-hata, .dash-son-durum.uyari .dash-son-hata { color: inherit; }
+.dash-ust { font-weight: 800; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+.dash-ust .dash-son-durum { background: none; color: var(--metin-soluk); border: none; padding: 0; min-width: auto; }
+.dash-yuzde { font-size: 11px; color: var(--metin-soluk); display: block; margin-top: -4px; }
+.dash-kutu .dash-rakam { position: relative; }
+.dash-kural { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; margin-top: 4px; }
+.dash-kural h3 { font-size: 13px; color: var(--metin-soluk); margin-bottom: 8px; }
+.dash-kural-satir {
+  display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px;
+}
+.dash-kural-id { font-weight: 700; min-width: 36px; color: var(--mor-acik); }
+.dash-kural-bar {
+  flex: 1; height: 10px; background: rgba(255,255,255,0.06); border-radius: 5px; overflow: hidden; min-width: 60px;
+}
+.dash-kural-dolu { display: block; height: 100%; border-radius: 5px; transition: width 0.4s; }
+.dash-kural-ist { font-size: 11px; color: var(--metin-soluk); min-width: 36px; text-align: right; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

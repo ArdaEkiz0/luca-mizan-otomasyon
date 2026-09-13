@@ -113,15 +113,29 @@ function dashboardGizle() {
   sec("blokDashboard").style.display = "none";
 }
 
+let _dashAutoRefresh = null;
+
 async function dashboardYukle() {
+  const yukleniyor = document.getElementById("dashYukleniyor");
+  const icerik = document.getElementById("dashIcerik");
+  if (yukleniyor) yukleniyor.style.display = "block";
+  if (icerik) icerik.style.display = "none";
   try {
     const r = await apiGetir("/api/kontrol/dashboard");
-    if (!r.ok) return;
+    if (!r.ok) { toastGoster("hata", "Dashboard yüklenemedi."); return; }
     const ist = r.istatistik || {};
     sec("dashToplam").textContent = ist.toplam || 0;
     sec("dashOk").textContent = ist.ok || 0;
     sec("dashHata").textContent = ist.hata || 0;
     sec("dashUyari").textContent = ist.uyari || 0;
+    const setYuzde = (id, pay, toplam) => {
+      const el = sec(id);
+      if (el) el.textContent = toplam > 0 ? Math.round((pay / toplam) * 100) + "%" : "0%";
+    };
+    setYuzde("dashToplamYuzde", ist.toplam || 0, ist.toplam || 1);
+    setYuzde("dashOkYuzde", ist.ok || 0, ist.toplam || 1);
+    setYuzde("dashHataYuzde", ist.hata || 0, ist.toplam || 1);
+    setYuzde("dashUyariYuzde", ist.uyari || 0, ist.toplam || 1);
     if (r.surum) {
       sec("versiyon").textContent = r.surum;
       const surumEl = document.getElementById("uygulamaSurum");
@@ -131,6 +145,24 @@ async function dashboardYukle() {
     if (r.guncelleme && !r.guncelleme.guncellememevcut) {
       const bar = document.getElementById("guncelleBar");
       if (bar) bar.style.display = "block";
+    }
+    if (r.kural_ist && r.kural_ist.length > 0) {
+      const kuralDiv = document.getElementById("dashKural");
+      if (kuralDiv) kuralDiv.style.display = "block";
+      const liste = document.getElementById("dashKuralListe");
+      if (liste) {
+        liste.innerHTML = r.kural_ist.map(([kid, veri]) =>
+          '<div class="dash-kural-satir">' +
+          '<span class="dash-kural-id">' + kid + '</span>' +
+          '<span class="dash-kural-bar"><span class="dash-kural-dolu" style="width:' + Math.min(100, ((veri.hata || 0) / (veri.toplam || 1)) * 100) + '%; background:var(--kirmizi);"></span></span>' +
+          '<span class="dash-kural-ist">' + (veri.hata || 0) + '/' + (veri.toplam || 0) + '</span>' +
+          '</div>'
+        ).join("");
+      }
+    }
+    const sonKontrolEl = document.getElementById("dashSonKontrol");
+    if (sonKontrolEl && r.son_kontrol) {
+      sonKontrolEl.textContent = "Son kontrol: " + (r.son_kontrol.dosya_adi || "") + " — " + (r.son_kontrol.kontrol_tarihi || "").slice(0, 16);
     }
     const barlar = sec("grafikBarlar");
     barlar.innerHTML = "";
@@ -152,21 +184,47 @@ async function dashboardYukle() {
     const sonuclar = r.sonuclar || [];
     if (sonuclar.length === 0) {
       sarici.innerHTML = '<div class="bos-liste">' + (DIL[aktifDil]?.bosListe || "Veri yok.") + '</div>';
+      if (yukleniyor) yukleniyor.style.display = "none";
+      if (icerik) icerik.style.display = "block";
       return;
     }
+    const ust = document.createElement("div");
+    ust.className = "dash-satir dash-ust";
+    ust.innerHTML =
+      '<span class="dash-son-durum">Durum</span>' +
+      '<span class="dash-son-firma">Firma / Dosya</span>' +
+      '<span class="dash-son-hata">HATA</span>' +
+      '<span class="dash-son-uyari">UYARI</span>' +
+      '<span class="dash-son-tarih">Tarih</span>';
+    sarici.appendChild(ust);
     sonuclar.forEach(s => {
       const satir = document.createElement("div");
       satir.className = "dash-satir";
-      const durumKucuk = s.durum.toLowerCase();
+      const durumKucuk = (s.durum || "").toLowerCase();
       satir.innerHTML =
         '<span class="dash-son-durum ' + durumKucuk + '">' + (s.durum || "") + '</span>' +
         '<span class="dash-son-firma">' + (s.firma_adi || s.dosya_adi || "") + '</span>' +
+        '<span class="dash-son-hata">' + (s.hata_sayisi || 0) + '</span>' +
+        '<span class="dash-son-uyari">' + (s.uyari_sayisi || 0) + '</span>' +
         '<span class="dash-son-tarih">' + (s.kontrol_tarihi || "").slice(5, 16) + '</span>';
       sarici.appendChild(satir);
     });
+    if (yukleniyor) yukleniyor.style.display = "none";
+    if (icerik) icerik.style.display = "block";
+    baslatAutoRefresh();
   } catch (e) {
     toastGoster("hata", "Yüklenemedi.");
+    if (yukleniyor) yukleniyor.style.display = "none";
+    if (icerik) icerik.style.display = "block";
   }
+}
+
+function baslatAutoRefresh() {
+  if (_dashAutoRefresh) clearInterval(_dashAutoRefresh);
+  _dashAutoRefresh = setInterval(() => {
+    const blok = document.getElementById("blokDashboard");
+    if (blok && blok.style.display !== "none") dashboardYukle();
+  }, 60000);
 }
 
 function kontrolFiltreleAra() {

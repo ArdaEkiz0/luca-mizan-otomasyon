@@ -168,27 +168,55 @@
       <span class="ikon">&#128202;</span>
       <h2 id="dashboardBaslik">Dashboard</h2>
       <div class="sag-butonlar">
+        <button class="btn btn-yesil btn-kucuk" onclick="dashboardYukle()" id="dashRefreshBtn" title="Yenile">&#8635;</button>
         <button class="btn btn-gri btn-kucuk" onclick="dashboardGizle()">&#10005;</button>
       </div>
     </div>
-    <div class="dash-istatistik" id="dashIstatistik">
-      <div class="dash-kutu dash-toplam"><span class="dash-rakam" id="dashToplam">0</span><span class="dash-etiket">Toplam</span></div>
-      <div class="dash-kutu dash-ok"><span class="dash-rakam" id="dashOk">0</span><span class="dash-etiket">OK</span></div>
-      <div class="dash-kutu dash-hata"><span class="dash-rakam" id="dashHata">0</span><span class="dash-etiket">HATA</span></div>
-      <div class="dash-kutu dash-uyari"><span class="dash-rakam" id="dashUyari">0</span><span class="dash-etiket">UYARI</span></div>
+    <div id="dashYukleniyor" style="display:none; text-align:center; padding:30px; color:var(--metin-soluk);">
+      <div style="font-size:24px; animation: spin 1s linear infinite; display:inline-block;">&#8635;</div>
+      <p style="margin-top:10px;">Yükleniyor...</p>
     </div>
-    <div class="dash-grafik" id="dashGrafik">
-      <h3 id="grafikBaslik">HATA Durumu — Son 7 Gün</h3>
-      <div class="grafik-barlar" id="grafikBarlar"></div>
-    </div>
-    <div class="dash-tablo">
-      <h3 id="dashTabloBaslik">Son Kontroller</h3>
-      <div class="dash-tablo-sarici" id="dashTabloSarici">
-        <div class="bos-liste">Veri yok.</div>
+    <div id="dashIcerik">
+      <div class="dash-istatistik" id="dashIstatistik">
+        <div class="dash-kutu dash-toplam">
+          <span class="dash-rakam" id="dashToplam">0</span>
+          <span class="dash-yuzde" id="dashToplamYuzde"></span>
+          <span class="dash-etiket">Toplam</span>
+        </div>
+        <div class="dash-kutu dash-ok">
+          <span class="dash-rakam" id="dashOk">0</span>
+          <span class="dash-yuzde" id="dashOkYuzde"></span>
+          <span class="dash-etiket">OK</span>
+        </div>
+        <div class="dash-kutu dash-hata">
+          <span class="dash-rakam" id="dashHata">0</span>
+          <span class="dash-yuzde" id="dashHataYuzde"></span>
+          <span class="dash-etiket">HATA</span>
+        </div>
+        <div class="dash-kutu dash-uyari">
+          <span class="dash-rakam" id="dashUyari">0</span>
+          <span class="dash-yuzde" id="dashUyariYuzde"></span>
+          <span class="dash-etiket">UYARI</span>
+        </div>
       </div>
-    </div>
-    <div style="padding:10px 0; text-align:center;">
-      <span id="versiyonBilgi" style="font-size:12px; color:var(--metin-soluk);">v0.0.0</span>
+      <div class="dash-kural" id="dashKural" style="display:none;">
+        <h3>&#128270; En Çok Hata Oluşturan Kurallar</h3>
+        <div id="dashKuralListe"></div>
+      </div>
+      <div class="dash-grafik" id="dashGrafik">
+        <h3 id="grafikBaslik">HATA Durumu — Son 7 Gün</h3>
+        <div class="grafik-barlar" id="grafikBarlar"></div>
+      </div>
+      <div class="dash-tablo">
+        <h3 id="dashTabloBaslik">Son Kontroller</h3>
+        <div class="dash-tablo-sarici" id="dashTabloSarici">
+          <div class="bos-liste">Veri yok.</div>
+        </div>
+      </div>
+      <div style="padding:10px 0; text-align:center;">
+        <span id="versiyonBilgi" style="font-size:12px; color:var(--metin-soluk);">v0.0.0</span>
+        <span id="dashSonKontrol" style="font-size:11px; color:var(--metin-soluk); margin-left:10px;"></span>
+      </div>
     </div>
   </section>
 
