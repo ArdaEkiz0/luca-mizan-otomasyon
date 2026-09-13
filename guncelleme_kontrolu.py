@@ -2,6 +2,9 @@ import json
 import os
 import subprocess
 import urllib.request
+import zipfile
+import shutil
+import io
 from pathlib import Path
 
 REPO_OWNER = "ArdaEkiz0"
@@ -47,57 +50,79 @@ def guncelle() -> dict:
     proj = _proj_kok()
     git_klasor = proj / ".git"
 
-    if not git_klasor.exists():
-        return {
-            "ok": False,
-            "guncellendi": False,
-            "mesaj": (
-                "Güncelleme yapılamadı: Bu proje bir git deposu değil (.git bulunamadı).\n\n"
-                "Manuel güncelleme:\n"
-                "1. Komut satırına gidin\n"
-                "2. Cd \"luca-mizan-otomasyon\"\n"
-                "3. git pull origin master"
-            ),
-        }
+    son = guncellememi_kontrol_et()
+    if son.get("guncellememevcut"):
+        return {"ok": True, "guncellendi": False, "mesaj": "Zaten en guncel surum."}
 
+    yeni_surum = son.get("yeni", "")
+
+    if git_klasor.exists():
+        return _git_pull(proj, son)
+    else:
+        return _zip_guncelle(proj, yeni_surum)
+
+
+def _git_pull(proj: Path, son: dict) -> dict:
     try:
-        son = guncellememi_kontrol_et()
-        if son.get("guncellememevcut"):
-            return {"ok": True, "guncellendi": False, "mesaj": "Zaten en güncel sürüm."}
-
         env = os.environ.copy()
         env["GIT_TERMINAL_PROMPT"] = "0"
-
         result = subprocess.run(
             ["git", "pull", "origin", "master"],
             capture_output=True, text=True, timeout=120,
-            cwd=str(proj),
-            env=env,
+            cwd=str(proj), env=env,
         )
         cikti = result.stdout.strip()
         hata = result.stderr.strip()
-
         if result.returncode == 0:
-            return {
-                "ok": True,
-                "guncellendi": True,
-                "mesaj": f"✅ Güncelleme başarılı!\n\n{cikti[:500]}",
-                "yeni_surum": guncellememi_kontrol_et()["yeni"],
-            }
+            return {"ok": True, "guncellendi": True,
+                    "mesaj": f"Guncelleme basarili!\n\n{cikti[:500]}",
+                    "yeni_surum": guncellememi_kontrol_et()["yeni"]}
         else:
-            return {
-                "ok": False,
-                "guncellendi": False,
-                "mesaj": f"❌ Güncelleme başarısız:\n{hata[:500]}\n\n{cikti[:300]}",
-                "yeni_surum": son.get("yeni", ""),
-            }
+            return {"ok": False, "guncellendi": False,
+                    "mesaj": f"Guncelleme basarisiz:\n{hata[:500]}\n\n{cikti[:300]}",
+                    "yeni_surum": son.get("yeni", "")}
     except subprocess.TimeoutExpired:
-        return {"ok": False, "guncellendi": False, "mesaj": "Güncelleme zaman aşımına uğradı (2 dk). Manuel olarak 'git pull origin master' çalıştırın."}
+        return {"ok": False, "guncellendi": False, "mesaj": "Zaman asimi. Manuel olarak 'git pull origin master' calistirin."}
     except FileNotFoundError:
-        return {
-            "ok": False,
-            "guncellendi": False,
-            "mesaj": "Git komutu bulunamadı. Git kurulu olduğundan emin olun. Manuel olarak 'git pull origin master' çalıştırın.",
-        }
+        return {"ok": False, "guncellendi": False, "mesaj": "Git bulunamadi. Manuel olarak guncelleyin."}
     except Exception as e:
-        return {"ok": False, "guncellendi": False, "mesaj": f"Güncelleme hatası: {str(e)}"}
+        return {"ok": False, "guncellendi": False, "mesaj": f"Guncelleme hatasi: {str(e)}"}
+
+
+def _zip_guncelle(proj: Path, yeni_surum: str) -> dict:
+    try:
+        zip_url = f"https://github.com/{REPO_OWNER}/{REPO_NAME}/archive/refs/heads/master.zip"
+        req = urllib.request.Request(zip_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            zip_data = resp.read()
+
+        with zipfile.ZipFile(io.BytesIO(zip_data)) as zf:
+            dosya_listesi = zf.namelist()
+            if not dosya_listesi:
+                return {"ok": False, "guncellendi": False, "mesaj": "ZIP dosyasi bos."}
+            root_klasor = dosya_listesi[0].split("/")[0]
+
+            korunacak = {".env", "mizan_kontrol.db", "raporlar", "yedekler",
+                          "__pycache__", "venv", ".git"}
+            mevcut_dosyalar = {}
+            for item in proj.iterdir():
+                if item.name not in korunacak:
+                    mevcut_dosyalar[item.name] = item
+
+            for dosya in dosya_listesi:
+                rel = dosya.split("/", 1)[1] if "/" in dosya else ""
+                if not rel:
+                    continue
+                hedef = proj / rel
+                if hedef.is_dir():
+                    continue
+                icerik = zf.read(dosya)
+                hedef.parent.mkdir(parents=True, exist_ok=True)
+                hedef.write_bytes(icerik)
+
+        return {"ok": True, "guncellendi": True,
+                "mesaj": f"Guncelleme basarili! Surum: v{yeni_surum}\nUygulamayi yeniden baslatin.",
+                "yeni_surum": yeni_surum}
+    except Exception as e:
+        return {"ok": False, "guncellendi": False,
+                "mesaj": f"Guncelleme hatasi: {str(e)}\n\nManuel olarak GitHub'dan ZIP indirip dosyalari degistirin."}
