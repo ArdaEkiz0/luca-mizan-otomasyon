@@ -978,7 +978,7 @@ class ApiHandler(BaseHTTPRequestHandler):
 
     def _kontrol_dashboard(self) -> None:
         try:
-            from veri_tabani import istatistik_getir, kontrol_sonuclari_getir, grafik_verisi_getir
+            from veri_tabani import istatistik_getir, kontrol_sonuclari_getir, grafik_verisi_getir, rapor_gecmis_getir
             from mizan_kontrol import mizan_kontrol as _mk
             import guncelleme_kontrolu as gc
             ist = istatistik_getir()
@@ -994,10 +994,11 @@ class ApiHandler(BaseHTTPRequestHandler):
                     "kontrol_tarihi": sk.get("kontrol_tarihi", ""),
                 }
             grafik = grafik_verisi_getir(7)
+            son_raporlar = rapor_gecmis_getir(limit=5)
             self._json({"ok": True, "istatistik": ist, "sonuclar": sonuclar,
                         "surum": gc.simdiki_surum(), "guncelleme": gc.guncellememi_kontrol_et(),
                         "kural_ist": en_cok_hata_kural, "son_kontrol": son_kontrol,
-                        "grafik": grafik})
+                        "grafik": grafik, "son_raporlar": son_raporlar})
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})
 

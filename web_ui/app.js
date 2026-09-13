@@ -220,6 +220,28 @@ async function dashboardYukle() {
         '<span class="dash-son-tarih">' + (s.kontrol_tarihi || "").slice(5, 16) + '</span>';
       sarici.appendChild(satir);
     });
+    const sonRaporlar = r.son_raporlar || [];
+    const raporBlok = document.getElementById("dashSonRaporlar");
+    const raporSarici = document.getElementById("dashRaporSarici");
+    if (raporBlok && raporSarici) {
+      if (sonRaporlar.length === 0) {
+        raporBlok.style.display = "none";
+      } else {
+        raporBlok.style.display = "block";
+        raporSarici.innerHTML = "";
+        let ru = "";
+        sonRaporlar.forEach(s => {
+          ru += '<div class="dash-satir">' +
+            '<span class="dash-son-durum ' + (s.durum || "").toLowerCase() + '">' + (s.durum || "") + '</span>' +
+            '<span class="dash-son-firma">' + muhafaza(s.urun_adi || s.kisa_ad || "") + '</span>' +
+            '<span class="dash-son-hata">' + (s.sorgu_sayisi || 0) + '</span>' +
+            '<span class="dash-son-uyari">' + muhafaza(s.rapor_dosyasi || "") + '</span>' +
+            '<span class="dash-son-tarih">' + (s.tarih || "").slice(0, 16) + '</span>' +
+          '</div>';
+        });
+        raporSarici.innerHTML = ru;
+      }
+    }
     if (yukleniyor) yukleniyor.style.display = "none";
     if (icerik) icerik.style.display = "block";
     baslatAutoRefresh();

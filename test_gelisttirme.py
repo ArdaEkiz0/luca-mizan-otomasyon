@@ -380,3 +380,17 @@ class TestKontrolAPI:
         from web_ui import ApiHandler
         ApiHandler._kontrol_gecmis_detay(handler, {"id": 999999})
         assert handler.sonuc[0]["ok"] is False
+
+    def test_dashboard_son_raporlar(self):
+        class MockHandler:
+            def __init__(self):
+                self.sonuc = None
+            def _json(self, veri, durum=200):
+                self.sonuc = (veri, durum)
+
+        handler = MockHandler()
+        from web_ui import ApiHandler
+        ApiHandler._kontrol_dashboard(handler)
+        assert handler.sonuc[0]["ok"] is True
+        assert "son_raporlar" in handler.sonuc[0]
+        assert isinstance(handler.sonuc[0]["son_raporlar"], list)
