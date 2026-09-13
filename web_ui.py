@@ -779,9 +779,9 @@ class ApiHandler(BaseHTTPRequestHandler):
 
     def _guncelleme_kontrol(self) -> None:
         try:
-            from guncelleme_kontrolu import guncellememi_kontrol_et
+            from guncelleme_kontrolu import guncellememi_kontrol_et, simdiki_surum
             sonuc = guncellememi_kontrol_et()
-            self._json({"ok": True, "guncelleme": sonuc})
+            self._json({"ok": True, "guncelleme": sonuc, "surum": simdiki_surum()})
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})
 

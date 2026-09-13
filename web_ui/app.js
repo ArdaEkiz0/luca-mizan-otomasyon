@@ -124,6 +124,8 @@ async function dashboardYukle() {
     sec("dashUyari").textContent = ist.uyari || 0;
     if (r.surum) {
       sec("versiyon").textContent = r.surum;
+      const surumEl = document.getElementById("uygulamaSurum");
+      if (surumEl) surumEl.textContent = "v" + r.surum;
       sec("versiyonBilgi").textContent = "v" + r.surum + (r.guncelleme && !r.guncelleme.guncellememevcut ? " — Güncelleme mevcut" : " — Güncel");
     }
     if (r.guncelleme && !r.guncelleme.guncellememevcut) {
@@ -502,15 +504,21 @@ guncellemeKontrolEt();
 async function guncellemeKontrolEt() {
   try {
     const r = await apiGonder("/api/guncelleme");
-    if (r && r.ok && !r.guncelleme.guncellememevcut) {
-      toastGoster("uyari", r.guncelleme.mesaj || ("Yeni sürüm var: " + (r.guncelleme.yeni || "")));
-      setTimeout(() => {
-        const bar = document.getElementById("guncelleBar");
-        if (bar) bar.style.display = "block";
-      }, 2000);
+    if (r && r.ok) {
+      const surumEl = document.getElementById("uygulamaSurum");
+      if (surumEl && r.surum) surumEl.textContent = "v" + r.surum;
+      if (!r.guncelleme.guncellememevcut) {
+        toastGoster("uyari", r.guncelleme.mesaj || ("Yeni sürüm var: " + (r.guncelleme.yeni || "")));
+        setTimeout(() => {
+          const bar = document.getElementById("guncelleBar");
+          if (bar) bar.style.display = "block";
+        }, 2000);
+      } else {
+        toastGoster("basarili", r.guncelleme.mesaj || "En güncel sürüme sahipsiniz.");
+      }
     }
   } catch (e) {
-    // Guncelleme kontol opsiyonel
+    toastGoster("hata", "Güncelleme kontrolü başarısız.");
   }
 }
 
