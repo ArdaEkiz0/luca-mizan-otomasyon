@@ -342,3 +342,17 @@ class TestKontrolAPI:
         ApiHandler._kontrol_arama(handler, {"firma": "", "durum": ""})
         assert handler.sonuc[0]["ok"] is True
         assert handler.sonuc[0]["sonuclar"] == []
+
+    def test_kontrol_arama_tumu_durum(self):
+        class MockHandler:
+            def __init__(self):
+                self.sonuc = None
+            def _json(self, veri, durum=200):
+                self.sonuc = (veri, durum)
+
+        handler = MockHandler()
+        from web_ui import ApiHandler
+        ApiHandler._kontrol_arama(handler, {"tumu": "true", "durum": "HATA"})
+        assert handler.sonuc[0]["ok"] is True
+        sonuclar = handler.sonuc[0]["sonuclar"]
+        assert isinstance(sonuclar, list)

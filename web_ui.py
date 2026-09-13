@@ -1005,14 +1005,14 @@ class ApiHandler(BaseHTTPRequestHandler):
             tumu = str(veri.get("tumu", "")).lower() == "true"
             firma = str(veri.get("firma", ""))
             durum = str(veri.get("durum", ""))
-            if tumu:
+            if tumu and not firma and not durum:
                 sonuclar = kontrol_sonuclari_getir(limit=50)
                 self._json({"ok": True, "sonuclar": sonuclar})
                 return
-            if not firma and not durum:
+            if not firma and not durum and not tumu:
                 self._json({"ok": True, "sonuclar": []})
                 return
-            sonuclar = kontrol_sonuclari_getir(firma=firma or None, durum=durum or None)
+            sonuclar = kontrol_sonuclari_getir(firma=firma or None, durum=durum or None, limit=50 if tumu else None)
             self._json({"ok": True, "sonuclar": sonuclar})
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})

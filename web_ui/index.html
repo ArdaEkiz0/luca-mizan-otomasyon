@@ -201,6 +201,12 @@
         <button class="btn btn-yesil btn-kucuk" onclick="kontrolGecmisTumu()">Tümünü Göster</button>
         <button class="btn btn-gri btn-kucuk" onclick="kontrolGecmisGizle()">X</button>
       </div>
+      <div class="kontrol-filtre" id="kontrolGecmisFiltre" style="display:none;margin-bottom:8px;">
+        <button class="btn btn-kucuk btn-filtre aktif" onclick="kontrolGecmisFiltrele('tum')" data-filtre="tum">🔵 Tümü</button>
+        <button class="btn btn-kucuk btn-filtre" onclick="kontrolGecmisFiltrele('OK')" data-filtre="OK">🟢 OK</button>
+        <button class="btn btn-kucuk btn-filtre" onclick="kontrolGecmisFiltrele('HATA')" data-filtre="HATA">🔴 HATA</button>
+        <button class="btn btn-kucuk btn-filtre" onclick="kontrolGecmisFiltrele('UYARI')" data-filtre="UYARI">🟡 UYARI</button>
+      </div>
       <div class="kontrol-liste" id="kontrolGecmisListe" style="display:none;"></div>
     </div>
   </section>

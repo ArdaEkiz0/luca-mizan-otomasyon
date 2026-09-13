@@ -75,11 +75,12 @@ python web_ui.py       # yerel sunucu + tarayıcıda arayüz
 | `logo_uret.py` | Terazi logoyu `.ico`/`.png` olarak üretir |
 | `kisayol_olustur.py` | İlk açılışta masaüstüne ikonlu kısayol oluşturur |
 | `test_unit.py` | 92 birim testi |
-| `test_gelisttirme.py` | 30 geliştirme testi |
+| `test_gelisttirme.py` | 31 geliştirme testi |
 | `hata_onerileri.py` | Kural bazlı hata önerileri (K1-K12) |
 
 ## Sürüm Geçmişi
 
+- **0.1.6** — Kontrol geçmişinde filtreleme (OK/HATA/UYARI), API'de durum filtresi
 - **0.1.5** — Kontrol geçmişinde "Tümünü Göster" özelliği, API'de tüm sonuçlar desteği
 - **0.1.4** — Kontrol detaylarında hata önerileri (K1-K12) gösteriliyor
 - **0.1.3** — Python otomatik kurulum: `Mizan_Raporu_Baslat.bat` ve `Luca_Mizan_Baslat.bat` Python yoksa `python-3.12.7` otomatik olarak indir ve kur
