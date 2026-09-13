@@ -80,6 +80,7 @@ python web_ui.py       # yerel sunucu + tarayıcıda arayüz
 
 ## Sürüm Geçmişi
 
+- **0.1.3** — Python otomatik kurulum: `Mizan_Raporu_Baslat.bat` ve `Luca_Mizan_Baslat.bat` Python yoksa `python-3.12.7` otomatik olarak indir ve kur
 - **0.1.2** — Kontrol bölümünde "📜 Geçmiş Ara" özelliği (geçmiş kontrol raporu arama), `/api/kontrol/arama` endpointi UI'ye bağlandı
 - **0.1.1** — Dashboard iyileştirmeleri (yüzde çubukları, auto-refresh, en çok hata yapan kurallar), HTML/TXT export, güncellenmiş README, batch dosyası ayrımı
 - **0.1.0** — Web arayüzü (Flask), HTML/TXT/JSON/CSV/PDF export, dashboard, güncelleme kontrolü
