@@ -353,6 +353,13 @@
       <button class="btn btn-turkuaz btn-kucuk" onclick="logFiltrele('uyari')">⚠️ UYARI</button>
       <button class="btn btn-gri btn-kucuk" onclick="logFiltrele('bilgi')">ℹ️ BİLGİ</button>
     </div>
+    <div style="margin-top:10px; text-align:center; border-top:1px solid var(--border); padding-top:10px;">
+      <button class="btn btn-turkuaz btn-kucuk" onclick="veritabaniYedekle()" id="yedekleBtn">&#128190; Veritabanı Yedekle</button>
+      <select id="yedekListe" style="margin-left:6px; padding:3px 6px; font-size:11px;">
+        <option value="">— Yedek seçin —</option>
+      </select>
+      <button class="btn btn-kirmizi btn-kucuk" onclick="veritabaniGeriYukle()" id="geriYukleBtn">&#128260; Geri Yükle</button>
+    </div>
   </section>
 
   <footer class="alt-bilgi">
