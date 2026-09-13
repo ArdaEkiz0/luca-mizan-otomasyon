@@ -115,6 +115,55 @@ class TestVeriTabani:
         assert ist["kurallar"]["K2"]["uyari"] == 1
         assert ist["kurallar"]["K2"]["toplam"] == 1
 
+    def test_rapor_gecmis_kaydet(self):
+        from veri_tabani import rapor_gecmis_kaydet, rapor_gecmis_getir
+        kid = rapor_gecmis_kaydet(
+            kisi_no="12345", kisa_ad="Test A.S.", urun_adi="Ürün",
+            urun_kodu="100", musteri_kodu="M1", urun_hafi="H1",
+            rapor_tipi="Tek", sorgu_sayisi=5, sure_saniye=2.5,
+            rapor_dosyasi="test.xlsx", durum="OK", tarih="2026-09-13",
+        )
+        assert kid > 0
+
+    def test_rapor_gecmis_getir(self):
+        from veri_tabani import rapor_gecmis_kaydet, rapor_gecmis_getir
+        rapor_gecmis_kaydet(kisi_no="111", kisa_ad="A", durum="OK", tarih="2026-09-13")
+        rapor_gecmis_kaydet(kisi_no="222", kisa_ad="B", durum="HATA", tarih="2026-09-13")
+        rapor_gecmis_kaydet(kisi_no="333", kisa_ad="C", durum="OK", tarih="2026-09-13")
+
+        tum = rapor_gecmis_getir()
+        assert len(tum) == 3
+
+        ok = rapor_gecmis_getir(durum="OK")
+        assert len(ok) == 2
+        assert all(s["durum"] == "OK" for s in ok)
+
+        kisi = rapor_gecmis_getir(kisi_no="111")
+        assert len(kisi) == 1
+        assert kisi[0]["kisi_no"] == "111"
+
+        limit = rapor_gecmis_getir(limit=1)
+        assert len(limit) == 1
+
+    def test_rapor_gecmis_arama(self):
+        from veri_tabani import rapor_gecmis_kaydet, rapor_gecmis_getir
+        rapor_gecmis_kaydet(kisi_no="123", kisa_ad="Aranacak", durum="OK", tarih="2026-09-13")
+        sonuc = rapor_gecmis_getir(kisi_no="12")
+        assert len(sonuc) == 1
+        assert sonuc[0]["kisi_no"] == "123"
+
+    def test_grafik_verisi_getir(self):
+        from veri_tabani import grafik_verisi_getir
+        grafik = grafik_verisi_getir(7)
+        assert "gunler" in grafik
+        assert "ok" in grafik
+        assert "hata" in grafik
+        assert "uyari" in grafik
+        assert len(grafik["gunler"]) == 7
+        assert len(grafik["ok"]) == 7
+        assert len(grafik["hata"]) == 7
+        assert len(grafik["uyari"]) == 7
+
 
 # --- Error Suggestions Tests ---
 class TestHataOnerileri:

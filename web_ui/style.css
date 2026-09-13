@@ -514,3 +514,20 @@ body {
 .dash-kural-dolu { display: block; height: 100%; border-radius: 5px; transition: width 0.4s; }
 .dash-kural-ist { font-size: 11px; color: var(--metin-soluk); min-width: 36px; text-align: right; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* Chart.js canvas */
+#grafikCanvas { max-height: 200px; }
+
+/* Karşılaştırma */
+#blokKaristirma .tablo { font-size: 12px; }
+#blokKaristirma .tablo th { background: rgba(124,58,237,0.15); }
+#blokKaristirma .tablo td, #blokKaristirma .tablo th { padding: 6px 8px; }
+
+/* Geçmiş */
+#blokGecmis .tablo { font-size: 11px; }
+#blokGecmis .tablo th { background: rgba(124,58,237,0.15); }
+#blokGecmis .tablo td, #blokGecmis .tablo th { padding: 4px 6px; }
+#gecmisFiltre input, #gecmisFiltre select {
+  padding: 6px 10px; border-radius: 6px; border: 1px solid var(--gri);
+  background: rgba(255,255,255,0.05); color: var(--metin); font-size: 12px;
+}

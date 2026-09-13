@@ -65,6 +65,23 @@ def _tablolar_olustur(conn: sqlite3.Connection) -> None:
             deger TEXT DEFAULT ''
         )
     """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS rapor_gecmis (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kisi_no TEXT DEFAULT '',
+            kisa_ad TEXT DEFAULT '',
+            urun_adi TEXT DEFAULT '',
+            urun_kodu TEXT DEFAULT '',
+            musteri_kodu TEXT DEFAULT '',
+            urun_hafi TEXT DEFAULT '',
+            rapor_tipi TEXT DEFAULT '',
+            sorgu_sayisi INTEGER DEFAULT 0,
+            sure_saniye REAL DEFAULT 0,
+            rapor_dosyasi TEXT DEFAULT '',
+            durum TEXT DEFAULT '',
+            tarih TEXT DEFAULT ''
+        )
+    """)
     conn.commit()
 
 
@@ -169,11 +186,43 @@ def istatistik_getir() -> dict:
     c.execute(
         "SELECT firma_adi, COUNT(*) as n FROM kontrol_sonuclari WHERE durum='HATA' GROUP BY firma_adi ORDER BY n DESC LIMIT 10"
     )
-    hata_firmalar = [{**dict(r)} for r in c.fetchall()]
+    hata_firmalari = [{**dict(r)} for r in c.fetchall()]
     conn.close()
     return {
         "toplam": toplam, "ok": ok, "hata": hata, "uyari": uyari,
-        "kurallar": kurallar, "hata_firmalari": hata_firmalar,
+        "kurallar": kurallar, "hata_firmalari": hata_firmalari,
+    }
+
+
+def grafik_verisi_getir(gun_sayisi: int = 7) -> dict:
+    conn = baglanti_olustur()
+    c = conn.cursor()
+    gunler = []
+    hata_sayilari = []
+    uyari_sayilari = []
+    ok_sayilari = []
+    for i in range(gun_sayisi - 1, -1, -1):
+        c.execute(
+            "SELECT DATE('now', ? || ' days') as gun",
+            (-i,)
+        )
+        gun = c.fetchone()["gun"]
+        c.execute("SELECT COUNT(*) as n FROM kontrol_sonuclari WHERE DATE(kontrol_tarihi) = ? AND durum = 'OK'", (gun,))
+        ok = c.fetchone()["n"]
+        c.execute("SELECT COUNT(*) as n FROM kontrol_sonuclari WHERE DATE(kontrol_tarihi) = ? AND durum = 'HATA'", (gun,))
+        hata = c.fetchone()["n"]
+        c.execute("SELECT COUNT(*) as n FROM kontrol_sonuclari WHERE DATE(kontrol_tarihi) = ? AND durum = 'UYARI'", (gun,))
+        uyari = c.fetchone()["n"]
+        gunler.append(gun[5:])
+        ok_sayilari.append(ok)
+        hata_sayilari.append(hata)
+        uyari_sayilari.append(uyari)
+    conn.close()
+    return {
+        "gunler": gunler,
+        "ok": ok_sayilari,
+        "hata": hata_sayilari,
+        "uyari": uyari_sayilari,
     }
 
 
@@ -220,6 +269,62 @@ def veri_tabani_temizle() -> None:
     c.execute("DELETE FROM kural_istatistik_db")
     conn.commit()
     conn.close()
+
+
+def rapor_gecmis_kaydet(
+    kisi_no: str = "",
+    kisa_ad: str = "",
+    urun_adi: str = "",
+    urun_kodu: str = "",
+    musteri_kodu: str = "",
+    urun_hafi: str = "",
+    rapor_tipi: str = "",
+    sorgu_sayisi: int = 0,
+    sure_saniye: float = 0,
+    rapor_dosyasi: str = "",
+    durum: str = "",
+    tarih: str = "",
+) -> int:
+    conn = baglanti_olustur()
+    c = conn.cursor()
+    c.execute(
+        """INSERT INTO rapor_gecmis
+           (kisi_no, kisa_ad, urun_adi, urun_kodu, musteri_kodu, urun_hafi,
+            rapor_tipi, sorgu_sayisi, sure_saniye, rapor_dosyasi, durum, tarih)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (kisi_no, kisa_ad, urun_adi, urun_kodu, musteri_kodu, urun_hafi,
+         rapor_tipi, sorgu_sayisi, sure_saniye, rapor_dosyasi, durum, tarih),
+    )
+    kayit_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    return kayit_id
+
+
+def rapor_gecmis_getir(limit: int = 50, kisi_no: str = None,
+                       tarih_baslangic: str = None, tarih_bitis: str = None,
+                       durum: str = None) -> list:
+    conn = baglanti_olustur()
+    c = conn.cursor()
+    query = "SELECT * FROM rapor_gecmis WHERE 1=1"
+    params = []
+    if kisi_no:
+        query += " AND kisi_no LIKE ?"
+        params.append(f"%{kisi_no}%")
+    if tarih_baslangic:
+        query += " AND tarih >= ?"
+        params.append(tarih_baslangic)
+    if tarih_bitis:
+        query += " AND tarih <= ?"
+        params.append(tarih_bitis)
+    if durum:
+        query += " AND durum = ?"
+        params.append(durum)
+    query += " ORDER BY id DESC LIMIT ?"
+    params.append(limit)
+    rows = c.execute(query, params).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 if __name__ == "__main__":

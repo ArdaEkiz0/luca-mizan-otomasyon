@@ -36,6 +36,7 @@ try:
     from veri_tabani import (
         kontrol_sonuc_kaydet, kontrol_sonuclari_getir, istatistik_getir,
         ayar_getir, ayar_kaydet, kural_istatistik_guncelle,
+        rapor_gecmis_kaydet, rapor_gecmis_getir, grafik_verisi_getir,
     )
 except Exception:
     pass
@@ -136,6 +137,7 @@ class UygulamaDurumu:
         self.raporlar: list[dict] = []
         self.secili_kisa_ad: str | None = None
         self._rapor_dosyalari: list[Path] = []
+        self.toplu_sonuc: list[dict] = []
 
     def log_ekle(self, mesaj: str) -> None:
         seviye = "bilgi"
@@ -259,6 +261,9 @@ class ApiHandler(BaseHTTPRequestHandler):
         if yol == "/api/kontrol/dashboard":
             self._kontrol_dashboard()
             return
+        if yol == "/api/docs":
+            self._api_docs()
+            return
 
         # Statik dosyalar
         if yol in ("/", "/index.html"):
@@ -304,6 +309,10 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._rapor_olustur(veri)
         elif yol == "/api/toplu_rapor":
             self._toplu_rapor(veri)
+        elif yol == "/api/rapor_gecmis":
+            self._rapor_gemis(veri)
+        elif yol == "/api/rapor_karistirma":
+            self._rapor_karistirma(veri)
         elif yol == "/api/tarayici_kapat":
             self._tarayiciyi_kapat()
         elif yol == "/api/ayar_kaydet":
@@ -482,14 +491,27 @@ class ApiHandler(BaseHTTPRequestHandler):
                 basarili = sum(1 for s in sonuclar if s["durum"] in ("basarili", "kuyruga alindi"))
                 basarisiz = sum(1 for s in sonuclar if s["durum"] == "hatali")
                 DURUM.log_ekle(f"TOPLU RAPOR SONUCU: {basarili} basarili, {basarisiz} hatali")
+                tarih = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 for s in sonuclar:
+                    kisa = s.get("kisa_ad", "")
+                    hata = s.get("hata", "")
+                    dosya = s.get("dosya_yolu", "")
                     if s["durum"] == "hatali":
-                        DURUM.log_ekle(f"  X {s['kisa_ad']}: {s['hata']}")
+                        DURUM.log_ekle(f"  X {kisa}: {hata}")
+                        rapor_gecmis_kaydet(
+                            kisa_ad=kisa, rapor_tipi="Toplu",
+                            rapor_dosyasi=hata, durum="HATA", tarih=tarih,
+                        )
                     else:
-                        DURUM.log_ekle(f"  OK {s['kisa_ad']}: {s['dosya_yolu'] or 'kuyruga alindi'}")
+                        DURUM.log_ekle(f"  OK {kisa}: {dosya or 'kuyruga alindi'}")
                         if s.get("dosya_yolu"):
                             DURUM.rapor_ekle(s["dosya_yolu"])
+                        rapor_gecmis_kaydet(
+                            kisa_ad=kisa, rapor_tipi="Toplu",
+                            rapor_dosyasi=dosya or "", durum="OK", tarih=tarih,
+                        )
                 DURUM.durum_bitir(f"Toplu rapor tamamlandi ({basarili} basarili, {basarisiz} hatali)")
+                DURUM.toplu_sonuc = sonuclar
             except Exception as e:
                 DURUM.log_ekle(f"HATA: {e}")
                 DURUM.log_ekle(traceback.format_exc())
@@ -497,6 +519,65 @@ class ApiHandler(BaseHTTPRequestHandler):
 
         ISCI.gonder(is_)
         self._json({"ok": True})
+
+    def _rapor_gemis(self, veri: dict) -> None:
+        try:
+            from urllib.parse import parse_qs
+            if self.path and "?" in self.path:
+                qs = parse_qs(self.path.split("?", 1)[1])
+                for key, val in qs.items():
+                    if key not in veri or not veri[key]:
+                        veri[key] = val[0]
+            limit = int(veri.get("limit", 50))
+            kisi_no = str(veri.get("kisi_no", ""))
+            tarih_baslangic = str(veri.get("tarih_baslangic", ""))
+            tarih_bitis = str(veri.get("tarih_bitis", ""))
+            durum = str(veri.get("durum", ""))
+            kayitlar = rapor_gecmis_getir(
+                limit=limit, kisi_no=kisi_no or None,
+                tarih_baslangic=tarih_baslangic or None,
+                tarih_bitis=tarih_bitis or None,
+                durum=durum or None,
+            )
+            self._json({"ok": True, "kayitlar": kayitlar})
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+
+    def _rapor_karistirma(self, veri: dict) -> None:
+        try:
+            with DURUM.kilit:
+                sonuclar = list(DURUM.toplu_sonuc)
+            if not sonuclar:
+                self._json({"ok": False, "hata": "Henuz toplu rapor yapilmedi."})
+                return
+            karistirma = {
+                "toplam": len(sonuclar),
+                "basarili": sum(1 for s in sonuclar if s["durum"] in ("basarili", "kuyruga alindi")),
+                "hatali": sum(1 for s in sonuclar if s["durum"] == "hatali"),
+                "sure_saniye": sum(s.get("sure_saniye", 0) for s in sonuclar),
+                "ortalama_sure": 0,
+                "kisiler": [],
+            }
+            if karistirma["toplam"] > 0:
+                karistirma["ortalama_sure"] = round(
+                    karistirma["sure_saniye"] / karistirma["toplam"], 2
+                )
+            for s in sonuclar:
+                karistirma["kisiler"].append({
+                    "kisa_ad": s.get("kisa_ad", ""),
+                    "urun_adi": s.get("urun_adi", ""),
+                    "urun_kodu": s.get("urun_kodu", ""),
+                    "musteri_kodu": s.get("musteri_kodu", ""),
+                    "urun_hafi": s.get("urun_hafi", ""),
+                    "rapor_tipi": s.get("rapor_tipi", ""),
+                    "sorgu_sayisi": s.get("sorgu_sayisi", 0),
+                    "sure_saniye": s.get("sure_saniye", 0),
+                    "durum": s.get("durum", ""),
+                    "hata": s.get("hata", ""),
+                })
+            self._json({"ok": True, "karistirma": karistirma})
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
 
     def _tarayiciyi_kapat(self) -> None:
         with DURUM.kilit:
@@ -847,6 +928,35 @@ class ApiHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})
 
+    def _api_docs(self) -> None:
+        endpointler = [
+            {"yol": "GET  /api/durum", "aciklama": "Canlı durum, loglar, müşteri listesi"},
+            {"yol": "GET  /api/ayarlar", "aciklama": "Ortam ayarları"},
+            {"yol": "GET  /api/kontrol/dashboard", "aciklama": "Dashboard verisi (istatistik, grafik, tablo)"},
+            {"yol": "GET  /api/docs", "aciklama": "Bu API dokümantasyonu"},
+            {"yol": "POST /api/musterileri_getir", "aciklama": "Müşteri listesi getir"},
+            {"yol": "POST /api/rapor_olustur", "aciklama": "Tek müşteri raporu"},
+            {"yol": "POST /api/toplu_rapor", "aciklama": "Toplu rapor"},
+            {"yol": "POST /api/rapor_gecmis", "aciklama": "Rapor geçmişi"},
+            {"yol": "POST /api/rapor_karistirma", "aciklama": "Toplu rapor karşılaştırma"},
+            {"yol": "POST /api/tarayici_kapat", "aciklama": "Tarayıcıyı kapat"},
+            {"yol": "POST /api/ayar_kaydet", "aciklama": "Ayarları kaydet"},
+            {"yol": "POST /api/dosya_ac", "aciklama": "Dosya aç"},
+            {"yol": "POST /api/klasor_ac", "aciklama": "Klasör aç"},
+            {"yol": "POST /api/liste_temizle", "aciklama": "Rapor listesini temizle"},
+            {"yol": "POST /api/kontrol", "aciklama": "Mizan kontrolü"},
+            {"yol": "POST /api/kontrol/export/{json,csv,pdf,html,txt}", "aciklama": "Rapor export"},
+            {"yol": "GET  /api/ayar_dil", "aciklama": "Dil ayarı"},
+            {"yol": "POST /api/guncelleme", "aciklama": "Sürüm kontrolü"},
+            {"yol": "POST /api/guncelleme/guncelle", "aciklama": "Güncelle"},
+        ]
+        try:
+            from guncelleme_kontrolu import simdiki_surum
+            surum = simdiki_surum()
+        except Exception:
+            surum = "0.1.1"
+        self._json({"ok": True, "endpoints": endpointler, "surum": surum})
+
     def _guncelleme_kontrol(self) -> None:
         try:
             from guncelleme_kontrolu import guncellememi_kontrol_et, simdiki_surum
@@ -865,7 +975,7 @@ class ApiHandler(BaseHTTPRequestHandler):
 
     def _kontrol_dashboard(self) -> None:
         try:
-            from veri_tabani import istatistik_getir, kontrol_sonuclari_getir
+            from veri_tabani import istatistik_getir, kontrol_sonuclari_getir, grafik_verisi_getir
             from mizan_kontrol import mizan_kontrol as _mk
             import guncelleme_kontrolu as gc
             ist = istatistik_getir()
@@ -880,9 +990,11 @@ class ApiHandler(BaseHTTPRequestHandler):
                     "durum": sk.get("durum", ""),
                     "kontrol_tarihi": sk.get("kontrol_tarihi", ""),
                 }
+            grafik = grafik_verisi_getir(7)
             self._json({"ok": True, "istatistik": ist, "sonuclar": sonuclar,
                         "surum": gc.simdiki_surum(), "guncelleme": gc.guncellememi_kontrol_et(),
-                        "kural_ist": en_cok_hata_kural, "son_kontrol": son_kontrol})
+                        "kural_ist": en_cok_hata_kural, "son_kontrol": son_kontrol,
+                        "grafik": grafik})
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})
 

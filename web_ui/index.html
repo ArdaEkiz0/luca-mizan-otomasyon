@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Luca Mizan Otomasyonu</title>
-<link rel="stylesheet" href="/style.css">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title>Luca Mizan Otomasyonu</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
 <!-- Animasyonlu arka plan -->
@@ -95,6 +96,7 @@
       <h2>Musteriler</h2>
       <span class="etiket" id="musteriSayisi">0 musteri</span>
       <input class="arama" id="arama" type="text" placeholder="Ara... (isim yazin)" oninput="tabloFiltrele()">
+      <button class="btn btn-turkuaz btn-kucuk" onclick="aramaAc()">&#128269; Filtrele</button>
     </div>
     <div class="tablo-sarici">
       <table class="tablo" id="musteriTablo">
@@ -110,6 +112,35 @@
           <tr class="bos-satir"><td colspan="4">Oncelikle "Musterileri Getir" butonuna basin.</td></tr>
         </tbody>
       </table>
+    </div>
+    <div id="sayfalama" style="text-align:center; margin-top:10px; display:none;">
+      <button class="btn btn-gri btn-kucuk" onclick="sayfaOnce()" id="sayfaOnceBtn">&#9664; Önceki</button>
+      <span id="sayfaBilgi" style="font-size:11px; color:var(--metin-soluk); margin:0 8px;">1 / 1</span>
+      <button class="btn btn-gri btn-kucuk" onclick="sayfaSonra()" id="sayfaSonraBtn">Sonraki &#9654;</button>
+      <select id="sayfaBoyut" onchange="sayfaBoyutDegistir()" style="margin-left:8px; padding:3px 6px; font-size:11px;">
+        <option value="10">10</option>
+        <option value="25" selected>25</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- Arama ve Filtreler Gelişmiş -->
+  <section class="kart blok blok-arama" id="blokArama" style="display:none;">
+    <div class="kart-baslik">
+      <span class="ikon">&#128269;</span>
+      <h2>Arama ve Filtreler</h2>
+      <button class="btn btn-gri btn-kucuk" onclick="aramaGizle()">&#10005;</button>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <div><label style="font-size:11px;color:var(--metin-soluk);">Kısa Ad</label><input id="filtreKisa" type="text" placeholder="..." oninput="tabloDoldur()"></div>
+      <div><label style="font-size:11px;color:var(--metin-soluk);">Uzun Ad</label><input id="filtreUzun" type="text" placeholder="..." oninput="tabloDoldur()"></div>
+      <div><label style="font-size:11px;color:var(--metin-soluk);">Vergi Dairesi</label><input id="filtreVDairesi" type="text" placeholder="..." oninput="tabloDoldur()"></div>
+      <div><label style="font-size:11px;color:var(--metin-soluk);">Vergi No</label><input id="filtreVNo" type="text" placeholder="..." oninput="tabloDoldur()"></div>
+    </div>
+    <div style="margin-top:8px;text-align:center;">
+      <button class="btn btn-yesil btn-kucuk" onclick="filtreTemizle()">Filtreleri Temizle</button>
     </div>
   </section>
 
@@ -207,7 +238,14 @@
       </div>
       <div class="dash-grafik" id="dashGrafik">
         <h3 id="grafikBaslik">HATA Durumu — Son 7 Gün</h3>
-        <div class="grafik-barlar" id="grafikBarlar"></div>
+        <div style="position:relative; height:200px;">
+          <canvas id="grafikCanvas"></canvas>
+        </div>
+        <div style="text-align:center; margin-top:6px;">
+          <button class="btn btn-gri btn-kucuk" onclick="grafikGunDegistir(-1)">&#9664;</button>
+          <span id="grafikPeriyot" style="font-size:11px; color:var(--metin-soluk); margin:0 6px;">7 gün</span>
+          <button class="btn btn-gri btn-kucuk" onclick="grafikGunDegistir(1)">&#9654;</button>
+        </div>
       </div>
       <div class="dash-tablo">
         <h3 id="dashTabloBaslik">Son Kontroller</h3>
@@ -222,9 +260,42 @@
     </div>
   </section>
 
+  <!-- Rapor Karşılaştırma -->
+  <section class="kart blok" id="blokKaristirma" style="display:none;">
+    <div class="kart-baslik">
+      <span class="ikon">&#128200;</span>
+      <h2>Toplu Rapor Karşılaştırma</h2>
+      <button class="btn btn-gri btn-kucuk" onclick="karistirmaGizle()">&#10005;</button>
+    </div>
+    <div id="karistirmaIcerik"></div>
+  </section>
+
+  <!-- Rapor Geçmişi -->
+  <section class="kart blok" id="blokGecmis" style="display:none;">
+    <div class="kart-baslik">
+      <span class="ikon">&#128196;</span>
+      <h2>Rapor Geçmişi</h2>
+      <div class="sag-butonlar">
+        <button class="btn btn-yesil btn-kucuk" onclick="gecmisYukle()">Yenile</button>
+        <button class="btn btn-gri btn-kucuk" onclick="gecmisGizle()">&#10005;</button>
+      </div>
+    </div>
+    <div id="gecmisFiltre" style="margin:10px 0; display:flex; gap:6px; flex-wrap:wrap;">
+      <input id="gecmisArama" type="text" placeholder="Kisi no veya isim ara..." style="flex:1;min-width:150px;" oninput="gecmisYukle()">
+      <select id="gecmisDurum" onchange="gecmisYukle()">
+        <option value="">Tum durumlar</option>
+        <option value="OK">OK</option>
+        <option value="HATA">HATA</option>
+        <option value="UYARI">UYARI</option>
+      </select>
+    </div>
+    <div id="gecmisListe" style="max-height:400px; overflow-y:auto;"></div>
+  </section>
+
   <!-- Dashboard Ac butonu -->
   <div style="text-align:center; padding:10px 0;">
     <button class="btn btn-mor btn-kucuk" onclick="dashboardAc()">📊 Dashboard</button>
+    <button class="btn btn-turkuaz btn-kucuk" onclick="gecmisAc()">📜 Rapor Geçmişi</button>
   </div>
 
   <!-- Indirilen raporlar -->
@@ -253,10 +324,18 @@
     <div class="log-konsol" id="logKonsol">
       <div class="log-satir bilgi">Sisteme hos geldiniz. Baslamak icin giris bilgilerinizi kontrol edip "Musterileri Getir"e basin.</div>
     </div>
+    <div id="logFiltre" style="margin-top:8px; text-align:center;">
+      <button class="btn btn-gri btn-kucuk" onclick="logFiltrele('tum')">Tümü</button>
+      <button class="btn btn-yesil btn-kucuk" onclick="logFiltrele('basarili')">✅ OK</button>
+      <button class="btn btn-kirmizi btn-kucuk" onclick="logFiltrele('hata')">❌ HATA</button>
+      <button class="btn btn-turkuaz btn-kucuk" onclick="logFiltrele('uyari')">⚠️ UYARI</button>
+      <button class="btn btn-gri btn-kucuk" onclick="logFiltrele('bilgi')">ℹ️ BİLGİ</button>
+    </div>
   </section>
 
   <footer class="alt-bilgi">
-    Luca Mizan Raporu Otomasyonu &middot; v<span id="versiyon">3.1</span> &middot; Developer: Arda M. Ekiz
+    Luca Mizan Raporu Otomasyonu &middot; v<span id="versiyon">0.1.1</span> &middot; Developer: Arda M. Ekiz
+    <span style="margin-left:10px;"><a href="/api/docs" target="_api" style="color:var(--mor);font-size:11px;">📖 API Docs</a></span>
   </footer>
 </div>
 
