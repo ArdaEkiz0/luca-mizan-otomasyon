@@ -896,6 +896,9 @@ async function kontrolDetay(id) {
           '<span class="ihl-mesaj">' + muhafaza(i.mesaj || i.deger || "") + '</span>' +
           (sevClass ? '<span class="ihl-seviye ' + sevClass + '">' + (i.seviye || "").toUpperCase() + '</span>' : '') +
         '</div>';
+        if (i.oneri) {
+          ih += '<div class="ihl-oneri">💡 ' + muhafaza(i.oneri) + '</div>';
+        }
       });
       ihlallerDiv.innerHTML = ih;
     }

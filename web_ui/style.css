@@ -577,4 +577,5 @@ body {
 .modal-ihlaller .ihl-seviye { font-size: 11px; padding: 1px 6px; border-radius: 3px; min-width: 36px; text-align: center; }
 .modal-ihlaller .ihl-seviye.hata { background: rgba(239,68,68,0.2); color: var(--kirmizi); }
 .modal-ihlaller .ihl-seviye.uyari { background: rgba(250,204,21,0.2); color: #facc15; }
+.modal-ihlaller .ihl-oneri { font-size: 11px; color: var(--turkuaz); padding: 2px 0 6px 72px; font-style: italic; }
 .modal-ihlaller .bos { color: var(--metin-soluk); font-size: 12px; padding: 8px 0; }

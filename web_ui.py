@@ -1072,6 +1072,7 @@ class ApiHandler(BaseHTTPRequestHandler):
     def _kontrol_gecmis_detay(self, veri: dict) -> None:
         try:
             from veri_tabani import ihlaller_getir, kontrol_sonuclari_getir, baglanti_olustur
+            from hata_onerileri import hata_onusu_ara
             kid = int(veri.get("id", 0))
             if kid <= 0:
                 self._json({"ok": False, "hata": "Gecerli id zorunlu"})
@@ -1084,7 +1085,10 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "hata": "Kontrol bulunamadi"})
                 return
             detay = dict(row)
-            detay["ihlaller"] = ihlaller_getir(kid)
+            ihlaller = ihlaller_getir(kid)
+            for ih in ihlaller:
+                ih["oneri"] = hata_onusu_ara(ih.get("kural_id", ""), ih.get("hesap_kodu", ""), ih.get("mesaj", ""))
+            detay["ihlaller"] = ihlaller
             self._json({"ok": True, "detay": detay})
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})
