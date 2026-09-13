@@ -77,11 +77,12 @@ python web_ui.py       # yerel sunucu + tarayıcıda arayüz
 | `logo_uret.py` | Terazi logoyu `.ico`/`.png` olarak üretir |
 | `kisayol_olustur.py` | İlk açılışta masaüstüne ikonlu kısayol oluşturur |
 | `test_unit.py` | 92 birim testi |
-| `test_gelisttirme.py` | 23 geliştirme testi |
+| `test_gelisttirme.py` | 24 geliştirme testi |
 | `hata_onerileri.py` | Kural bazlı hata önerileri (K1-K12) |
 
 ## Sürüm Geçmişi
 
+- **0.1.2** — Kontrol bölümünde "📜 Geçmiş Ara" özelliği (geçmiş kontrol raporu arama), `/api/kontrol/arama` endpointi UI'ye bağlandı
 - **0.1.1** — Dashboard iyileştirmeleri (yüzde çubukları, auto-refresh, en çok hata yapan kurallar), HTML/TXT export, güncellenmiş README, batch dosyası ayrımı
 - **0.1.0** — Web arayüzü (Flask), HTML/TXT/JSON/CSV/PDF export, dashboard, güncelleme kontrolü
 - **0.0.2** — Tek tıkla kurulum, otomatik kısayol, hata yönetimi
