@@ -1,7 +1,7 @@
 # Luca Mizan Raporu Otomasyonu
 
 LUCA Mali Müşavir Paketi'nde müşteri mizan raporlarını otomatik oluşturan,
-**modern animasyonlu arayüzlü bir masaüstü uygulaması**.
+**modern animasyonlu arayüzlü bir web uygulaması**.
 
 ## Özellikler
 
@@ -15,18 +15,17 @@ LUCA Mali Müşavir Paketi'nde müşteri mizan raporlarını otomatik oluşturan
   toplu rapor; çıktılar `raporlar/` klasörüne Excel (.xlsx) olarak kaydedilir
 - 🔒 **Güvenlik** — kimlik bilgileri yalnızca kendi bilgisayarınızdaki `.env`
   dosyasında saklanır; hiçbir yere gönderilmez/git'e eklenmez
+- 📤 **Çoklu export** — JSON, CSV, PDF, HTML, TXT formatında rapor indirabilirsiniz
 
 ## Ekran görüntüsü
 
-> Arayüz tarayıcıda değil, **kendi masaüstü penceresinde** açılır
-> (pywebview / Windows WebView2 ile). Tarayıcı açılmaz.
+> Arayüz tarayıcıda açılır (yerel sunucu + Chromium). Tarayıcıdan erişilir.
 
 ## Hızlı Başlangıç (Windows)
 
 Python'un kurulu olduğunu varsayar. **`Mizan_Raporu_Baslat.bat`** dosyasına
 çift tıklayın — sanal ortam, bağımlılıklar ve Chromium otomatik kurulur,
-ardından uygulama açılır. İlk açılışta **masaüstüne otomatik bir kısayol**
-oluşturulur; bir daha klasörden açmanıza gerek kalmaz.
+ardından tarayıcıda arayüz açılır.
 
 > Python kurulu değilse: [python.org](https://www.python.org/downloads/)'dan
 > kurun, "Add Python to PATH" seçeneğini işaretleyin, sonra `.bat`'a tekrar
@@ -61,30 +60,34 @@ playwright install chromium
 
 cp .env.example .env   # kendi bilgilerinizi girin (veya arayüzden girin)
 
-python arayuz.py       # masaüstü pencere (pywebview; yoksa tarayıcıda açılır)
-# veya
-python web_ui.py       # yalnızca yerel web sunucusu + tarayıcıda arayüz
+python web_ui.py       # yerel sunucu + tarayıcıda arayüz
 ```
 
 ## Dosya Yapısı
 
 | Dosya | Açıklama |
 |---|---|
-| `arayuz.py` | Masaüstü pencere giriş noktası (pywebview) |
+| `arayuz.py` | Web arayüzü sunucusu (Flask — sadece yerel) |
 | `web_ui.py` | Yerel HTTP sunucusu + arka plan otomasyon işçisi + API |
-| `web_ui/` | Modern arayüz (HTML/CSS/JS) ve ikon |
 | `luca_otomasyon_core.py` | Asıl otomasyon motoru (Playwright) — firma seçimi, mizan oluşturma |
-| `Mizan_Raporu_Baslat.bat` | Windows tek tıkla kurulum + başlatma |
+| `Mizan_Raporu_Baslat.bat` | Web arayüzünü başlatır (kullanılacak) |
+| `Luca_Mizan_Baslat.bat` | Desktop uygulamasını başlatır (özel) |
+| `web_ui/` | Modern arayüz (HTML/CSS/JS) ve ikon |
 | `.env` / `.env.example` | Giriş bilgileri ve varsayılan filtreler |
 | `logo_uret.py` | Terazi logoyu `.ico`/`.png` olarak üretir |
 | `kisayol_olustur.py` | İlk açılışta masaüstüne ikonlu kısayol oluşturur |
-| `test_unit.py` | 70+ birim testi |
+| `test_unit.py` | 92 birim testi |
+| `test_gelisttirme.py` | 19 geliştirme testi |
+| `hata_onerileri.py` | Kural bazlı hata önerileri (K1-K12) |
 
 ## Sürüm Geçmişi
 
-- **v3.1** — Masaüstüne otomatik kısayol, güncellenmiş kısayol yönetimi
-- **v3.0** — Modern animasyonlu web tabanlı masaüstü arayüz (terazi logo),
-  PyInstaller hazırlıkları
+- **0.1.1** — Dashboard iyileştirmeleri (yüzde çubukları, auto-refresh, en çok hata yapan kurallar), HTML/TXT export, güncellenmiş README, batch dosyası ayrımı
+- **0.1.0** — Web arayüzü (Flask), HTML/TXT/JSON/CSV/PDF export, dashboard, güncelleme kontrolü
+- **0.0.2** — Tek tıkla kurulum, otomatik kısayol, hata yönetimi
+- **0.0.1** — İlk sürüm (masaüstü, pywebview, Chromium yükleme)
+
+**Sürüm notu:** Luca'nin gerçek sürüm numarası masaüstü uygulamasına ait olduğundan, proje sürümü **0.x** olarak tutulmaktadır. (Mevcut masaüstü sürüm: **v3.1**)
 
 ## Ayarlar (`.env`)
 
@@ -111,6 +114,11 @@ CIKTI_KLASORU=raporlar
   çalıştığı için müdahale edebilirsiniz.
 - **Toplu rapor:** Filtrelenen tüm müşteriler sırayla işlenir; her müşteri
   için firma seçimi yeniden yapılır, böylece raporlar doğru firmaya aittir.
+- **Export formatları:** Kontrol raporları JSON, CSV, PDF, HTML ve TXT
+  formatında indirilebilir. HTML ve TXT formatları doğrudan dosya olarak
+  kaydedilir; JSON/CSV/PDF tarayıcıdan indirilir.
+- **İki batch dosyası:** `Mizan_Raporu_Baslat.bat` → Web arayüzü (kullanılacak),
+  `Luca_Mizan_Baslat.bat` → Masaüstü uygulaması (özel).
 
 ## Lisans
 

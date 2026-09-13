@@ -327,6 +327,10 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._kontrol_export_csv(veri)
         elif yol == "/api/kontrol/export/pdf":
             self._kontrol_export_pdf(veri)
+        elif yol == "/api/kontrol/export/html":
+            self._kontrol_export_html(veri)
+        elif yol == "/api/kontrol/export/txt":
+            self._kontrol_export_txt(veri)
         elif yol == "/api/guncelleme":
             self._guncelleme_kontrol()
         elif yol == "/api/guncelleme/guncelle":
@@ -770,6 +774,72 @@ class ApiHandler(BaseHTTPRequestHandler):
             govde = hedef.read_bytes()
             self.send_response(200)
             self.send_header("Content-Type", "application/pdf")
+            self.send_header("Content-Disposition", f'attachment; filename="{hedef.name}"')
+            self.send_header("Content-Length", str(len(govde)))
+            self.end_headers()
+            self.wfile.write(govde)
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+
+    def _kontrol_export_html(self, veri: dict) -> None:
+        try:
+            from mizan_kontrol import mizan_kontrol, kontrol_html_yaz
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+            return
+        try:
+            dosya_adi = str(veri.get("dosya", ""))
+            if not dosya_adi:
+                self._json({"ok": False, "hata": "Dosya belirtilmedi"})
+                return
+            rapor_klasor = BASE_DIR / "raporlar"
+            dosya = None
+            for f in sorted(rapor_klasor.glob("*.xlsx")):
+                if f.name == dosya_adi and "_KONTROL" not in f.name:
+                    dosya = f
+                    break
+            if dosya is None:
+                self._json({"ok": False, "hata": "Dosya bulunamadi"})
+                return
+            s = mizan_kontrol(dosya)
+            hedef = dosya.with_suffix(".html")
+            kontrol_html_yaz(s, hedef)
+            govde = hedef.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{hedef.name}"')
+            self.send_header("Content-Length", str(len(govde)))
+            self.end_headers()
+            self.wfile.write(govde)
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+
+    def _kontrol_export_txt(self, veri: dict) -> None:
+        try:
+            from mizan_kontrol import mizan_kontrol, kontrol_txt_yaz
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+            return
+        try:
+            dosya_adi = str(veri.get("dosya", ""))
+            if not dosya_adi:
+                self._json({"ok": False, "hata": "Dosya belirtilmedi"})
+                return
+            rapor_klasor = BASE_DIR / "raporlar"
+            dosya = None
+            for f in sorted(rapor_klasor.glob("*.xlsx")):
+                if f.name == dosya_adi and "_KONTROL" not in f.name:
+                    dosya = f
+                    break
+            if dosya is None:
+                self._json({"ok": False, "hata": "Dosya bulunamadi"})
+                return
+            s = mizan_kontrol(dosya)
+            hedef = dosya.with_suffix("_KONTROL.txt")
+            kontrol_txt_yaz(s, hedef)
+            govde = hedef.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.send_header("Content-Disposition", f'attachment; filename="{hedef.name}"')
             self.send_header("Content-Length", str(len(govde)))
             self.end_headers()

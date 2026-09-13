@@ -774,6 +774,14 @@ function kontrolExportPdf() {
   kontrolExportYap("pdf");
 }
 
+function kontrolExportHtml() {
+  kontrolExportYap("html");
+}
+
+function kontrolExportTxt() {
+  kontrolExportYap("txt");
+}
+
 function kontrolExportYap(format) {
   const filtrelenen = kontrolFiltreli === "tum"
     ? kontrolSonuclari
@@ -798,6 +806,8 @@ function kontrolExportYap(format) {
       let uzanti = format;
       if (format === "pdf") uzanti = dosya.replace(/\.xlsx$/, "_KONTROL.pdf");
       else if (format === "csv") uzanti = dosya.replace(/\.xlsx$/, ".csv");
+      else if (format === "html") uzanti = dosya.replace(/\.xlsx$/, ".html");
+      else if (format === "txt") uzanti = dosya.replace(/\.xlsx$/, "_KONTROL.txt");
       else uzanti = dosya.replace(/\.xlsx$/, ".json");
       a.download = uzanti;
       document.body.appendChild(a);

@@ -645,6 +645,71 @@ def kontrol_pdf_yaz(sonuc: KontrolSonucu, hedef: Path) -> Path:
     return hedef
 
 
+def kontrol_html_yaz(sonuc: KontrolSonucu, hedef: Path) -> Path:
+    """Kontrol sonucunu HTML dosyasi olarak yazar."""
+    durum_renk = {"OK": "#22c55e", "HATA": "#ef4444", "UYARI": "#facc15"}
+    renk = durum_renk.get(sonuc.durum, "#9aa5b8")
+    ihlaller_html = ""
+    for i in sonuc.ihlaller:
+        ihl_renk = "#ef4444" if i.seviye == "HATA" else "#facc15"
+        ihlaller_html += (
+            '<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);'
+            f'border-left:3px solid {ihl_renk};padding-left:10px;">'
+            f'<strong>[{i.kural_id}]</strong> {i.hesap_kodu} {i.hesap_adi}: {i.mesaj}'
+            f' <span style="color:{ihl_renk};font-size:11px;">[{i.seviye}]</span>'
+            '</div>'
+        )
+    html = (
+        '<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">'
+        '<title>Mizan Kontrol Raporu</title><style>'
+        'body{font-family:"Segoe UI",sans-serif;background:#0f1023;color:#e9ecf5;padding:40px;max-width:800px;margin:auto;}'
+        'h1{color:#7c3aed;} .durum{display:inline-block;padding:4px 14px;border-radius:8px;font-weight:800;color:#fff;margin:10px 0;}'
+        '.bilgi{background:rgba(255,255,255,0.05);padding:10px 16px;border-radius:8px;margin:6px 0;}'
+        '</style></head><body>'
+        f'<h1>&#128202; Mizan Kontrol Raporu</h1>'
+        f'<span class="durum" style="background:{renk};">{sonuc.durum}</span>'
+        f'<div class="bilgi"><strong>Dosya:</strong> {sonuc.dosya_adi}</div>'
+        f'<div class="bilgi"><strong>Firma:</strong> {sonuc.firma_adi}</div>'
+        f'<div class="bilgi"><strong>D&#246;nem:</strong> {sonuc.donem}</div>'
+        f'<div class="bilgi"><strong>Sat&#305;r Say&#305;s&#305;:</strong> {sonuc.satir_sayisi}</div>'
+        f'<div class="bilgi"><strong>&#214;z:</strong> {sonuc.ozet}</div>'
+        f'<div class="bilgi"><strong>Hata:</strong> {sonuc.hata_sayisi} &nbsp; <strong>Uyar&#305;:</strong> {sonuc.uyari_sayisi}</div>'
+        '<h2>Kural İhlalleri</h2>'
+        f'{ihlaller_html if ihlaller_html else "<p>İhlal yok.</p>"}'
+        '</body></html>'
+    )
+    with open(hedef, "w", encoding="utf-8") as f:
+        f.write(html)
+    return hedef
+
+
+def kontrol_txt_yaz(sonuc: KontrolSonucu, hedef: Path) -> Path:
+    """Kontrol sonucunu metin dosyasi olarak yazar."""
+    satirlar = [
+        "=" * 60,
+        "  MIZAN KONTROL RAPORU",
+        "=" * 60,
+        f"  Dosya:  {sonuc.dosya_adi}",
+        f"  Firma:  {sonuc.firma_adi}",
+        f"  Donem:  {sonuc.donem}",
+        f"  Satir:  {sonuc.satir_sayisi}",
+        f"  Durum:  {sonuc.durum} ({sonuc.ozet})",
+        f"  Hata:   {sonuc.hata_sayisi}",
+        f"  Uyari:  {sonuc.uyari_sayisi}",
+        "-" * 60,
+        "  Kural Ihlalleri:",
+        "-" * 60,
+    ]
+    for i in sonuc.ihlaller:
+        satirlar.append(f"  [{i.kural_id}] {i.hesap_kodu} {i.hesap_adi}: {i.mesaj} [{i.seviye}]")
+    if not sonuc.ihlaller:
+        satirlar.append("  (Ihlal yok)")
+    satirlar.append("=" * 60)
+    with open(hedef, "w", encoding="utf-8") as f:
+        f.write("\n".join(satirlar) + "\n")
+    return hedef
+
+
 if __name__ == "__main__":
     import sys
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
