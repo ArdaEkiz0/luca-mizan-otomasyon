@@ -152,6 +152,21 @@ class TestVeriTabani:
         assert len(sonuc) == 1
         assert sonuc[0]["kisi_no"] == "123"
 
+    def test_kontrol_arama_endpoint_bos(self):
+        """/api/kontrol/arama — bos firma ve durum → bos sonuc"""
+        class MockHandler:
+            def __init__(self):
+                self.sonuc = None
+            def _json(self, veri, durum=200):
+                self.sonuc = (veri, durum)
+
+        handler = MockHandler()
+        from web_ui import ApiHandler
+        ApiHandler._kontrol_arama(handler, {"firma": "", "durum": ""})
+        assert handler.sonuc is not None
+        assert handler.sonuc[0]["ok"] is True
+        assert handler.sonuc[0]["sonuclar"] == []
+
     def test_grafik_verisi_getir(self):
         from veri_tabani import grafik_verisi_getir
         grafik = grafik_verisi_getir(7)
