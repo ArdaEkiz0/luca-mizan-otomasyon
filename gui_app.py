@@ -16,6 +16,7 @@ Kimlik bilgileriniz yalnızca bu bilgisayardaki ".env" dosyasında saklanır.
 from __future__ import annotations
 
 import datetime
+import importlib
 import os
 import queue
 import subprocess
@@ -29,6 +30,29 @@ from dotenv import load_dotenv, set_key
 from tkinter import ttk, messagebox
 
 from luca_otomasyon_core import LucaOtomasyonCore, SINIF_ETIKETLERI
+
+try:
+    from veri_tabani import (
+        kontrol_sonuc_kaydet, kontrol_sonuclari_getir, istatistik_getir,
+        ayar_getir, ayar_kaydet,
+    )
+except Exception:
+    kontrol_sonuc_kaydet = None
+    kontrol_sonuclari_getir = None
+    istatistik_getir = None
+    ayar_getir = None
+    ayar_kaydet = None
+
+try:
+    import guncelleme_kontrolu as gc
+except Exception:
+    gc = None
+
+try:
+    from hata_onerileri import hata_onusu_ara, ihlaller_ozeti_ihlaller
+except Exception:
+    hata_onusu_ara = None
+    ihlaller_ozeti_ihlaller = None
 
 ENV_PATH = Path(__file__).parent / ".env"
 ENV_EXAMPLE_PATH = Path(__file__).parent / ".env.example"
@@ -147,6 +171,7 @@ class LucaGUI(ctk.CTk):
         self.core: LucaOtomasyonCore | None = None
         self.secili_kisa_ad: str | None = None
         self.calisiyor = False
+        self._dashboard_pencere: ctk.CTkToplevel | None = None
 
         self._is_kuyrugu: "queue.Queue" = queue.Queue()
         threading.Thread(target=self._is_parcasi_dongusu, daemon=True, name="OtomasyonWorker").start()
@@ -154,6 +179,7 @@ class LucaGUI(ctk.CTk):
         ayar = _env_yukle()
         self._arayuzu_olustur(ayar)
         self.after(120, self._kuyrugu_dinle)
+        self.after(5000, self._guncelleme_kontrol)
         self.protocol("WM_DELETE_WINDOW", self._kapatirken)
 
     def _is_parcasi_dongusu(self) -> None:
@@ -188,6 +214,29 @@ class LucaGUI(ctk.CTk):
             text_color="#a0c4ff",
         )
         surum.grid(row=0, column=1, padx=20, pady=12, sticky="e")
+
+        self.guncelle_btn = ctk.CTkButton(
+            baslik_frame, text="🔄 Güncelle", width=100, height=28,
+            font=ctk.CTkFont(size=11),
+            fg_color="#28a745", hover_color="#218838",
+            command=self._guncelle_kontrol,
+        )
+        self.guncelle_btn.grid(row=0, column=2, padx=0, pady=12, sticky="e")
+
+        self.guncelle_durum = ctk.CTkLabel(
+            baslik_frame, text="",
+            font=ctk.CTkFont(size=10),
+            text_color="#888888",
+        )
+        self.guncelle_durum.grid(row=0, column=3, padx=(0, 10), pady=12, sticky="e")
+
+        self.dashboard_btn = ctk.CTkButton(
+            baslik_frame, text="📊 Dashboard", width=110, height=28,
+            font=ctk.CTkFont(size=11),
+            fg_color="#6f42c1", hover_color="#5a32a3",
+            command=self._dashboard_ac,
+        )
+        self.dashboard_btn.grid(row=0, column=4, padx=0, pady=12, sticky="e")
 
         # --- Giris bilgileri ---
         giris_frame = ctk.CTkFrame(self, fg_color=RENKLER["panel_arka"], corner_radius=10)
@@ -883,6 +932,12 @@ class LucaGUI(ctk.CTk):
 
     def _kapatirken(self) -> None:
         _dosyaya_log_yaz("Uygulama penceresi kapatiliyor.")
+        if self._dashboard_pencere is not None:
+            try:
+                self._dashboard_pencere.destroy()
+            except Exception:
+                pass
+            self._dashboard_pencere = None
         self._tarayiciyi_kapat(sessiz=True)
         self.destroy()
 
@@ -1038,6 +1093,25 @@ class LucaGUI(ctk.CTk):
         self._mesgul_bitir(f"Kontrol tamamlandi ({toplam} dosya)")
         self._kontrol_filtrele(self.kontrol_filtreli)
 
+        # SQLite kaydet
+        if kontrol_sonuc_kaydet is not None:
+            try:
+                for s in self.kontrol_sonuclari:
+                    ihlaller = s.get("ihlaller", [])
+                    kontrol_sonuc_kaydet(
+                        dosya_adi=s["dosya"],
+                        firma_adi=s.get("firma", ""),
+                        durum=s["durum"],
+                        hata_sayisi=s.get("hata_sayisi", 0),
+                        uyari_sayisi=s.get("uyari_sayisi", 0),
+                        ihlaller=ihlaller,
+                    )
+            except Exception:
+                pass
+
+        # Dashboard güncelle
+        self._dashboard_guncelle()
+
         # Belirgi bildirim
         if hata > 0:
             hatali_dosyalar = [s["dosya"] for s in self.kontrol_sonuclari if s["durum"] == "HATA"]
@@ -1103,6 +1177,18 @@ class LucaGUI(ctk.CTk):
                 mesaj = f"=== {dosya} ===\n\n"
                 for ihlal in s["ihlaller"]:
                     mesaj += f"[{ihlal['kural']}] {ihlal['hesap']} {ihlal['ad']}: {ihlal['mesaj']}\n"
+
+                # Hata önerileri
+                if hata_onusu_ara is not None:
+                    oneriler = []
+                    for ihlal in s["ihlaller"]:
+                        if ihlal.get("seviye") == "HATA":
+                            oner = hata_onusu_ara(ihlal.get("kural", ""))
+                            if oner:
+                                oneriler.append(f"[{ihlal['kural']}] {ihlal['hesap_kodu']}: {oner}")
+                    if oneriler:
+                        mesaj += "\n--- ÖNERİLER ---\n" + "\n".join(oneriler)
+
                 messagebox.showinfo("Kontrol Detay", mesaj)
                 return
         messagebox.showinfo("Kontrol Detay", f"{dosya}: Ihlal bulunamadi.")
@@ -1152,6 +1238,163 @@ class LucaGUI(ctk.CTk):
     def _kontrol_export_pdf(self) -> None:
         self._kontrol_export("pdf")
 
+    # --- Güncelleme ---
+    def _guncelleme_kontrol(self) -> None:
+        if gc is None:
+            self.guncelle_durum.configure(text="")
+            return
+        try:
+            son = gc.guncellememi_kontrol_et()
+            if son.get("guncellememevcut"):
+                self.guncelle_durum.configure(text="✅ Güncel", text_color="#22c55e")
+            else:
+                self.guncelle_durum.configure(text="🔄 Güncelle mevcut!", text_color="#facc15")
+        except Exception:
+            self.guncelle_durum.configure(text="")
+
+    def _guncelle(self) -> None:
+        if gc is None:
+            messagebox.showwarning("Güncelleme", "Güncelleme modülü yüklü değil.")
+            return
+        try:
+            son = gc.guncelle()
+            if son.get("ok"):
+                if son.get("guncellendi"):
+                    messagebox.showinfo("Güncelleme", son.get("mesaj", "Güncelleme başarılı!"))
+                    self._guncelleme_kontrol()
+                else:
+                    messagebox.showinfo("Güncelleme", son.get("mesaj", "Zaten en güncel sürüm."))
+            else:
+                messagebox.showerror("Güncelleme", son.get("mesaj", "Güncelleme başarısız."))
+        except Exception as e:
+            messagebox.showerror("Güncelleme", f"Hata: {e}")
+
+    def _guncelle_kontrol(self) -> None:
+        self._guncelleme_kontrol()
+        if gc is not None:
+            son = gc.guncellememi_kontrol_et()
+            if not son.get("guncellememevcut"):
+                self._guncelle()
+
+    # --- Dashboard ---
+    def _dashboard_ac(self) -> None:
+        if self._dashboard_pencere is not None:
+            try:
+                self._dashboard_pencere.lift()
+                self._dashboard_pencere.focus_force()
+            except Exception:
+                pass
+            return
+        self._dashboard_pencere = ctk.CTkToplevel(self)
+        self._dashboard_pencere.title("📊 Dashboard")
+        self._dashboard_pencere.geometry("650x450")
+        self._dashboard_pencere.minsize(500, 350)
+        self._dashboard_pencere.transient(self)
+        self._dashboard_pencere.protocol("WM_DELETE_WINDOW", self._dashboard_kapat)
+
+        ctk.CTkLabel(
+            self._dashboard_pencere, text="📊 Dashboard",
+            font=ctk.CTkFont(size=20, weight="bold"),
+            text_color=RENKLER["baslik"],
+        ).pack(padx=20, pady=(15, 5), anchor="w")
+
+        self.dash_ist = ctk.CTkFrame(self._dashboard_pencere, corner_radius=8)
+        self.dash_ist.pack(fill="x", padx=20, pady=5)
+
+        self.dash_toplam = ctk.CTkLabel(self.dash_ist, text="TOPLAM: 0",
+                                         font=ctk.CTkFont(size=16, weight="bold"), text_color="#fff")
+        self.dash_toplam.pack(side="left", padx=15, pady=10)
+        self.dash_ok = ctk.CTkLabel(self.dash_ist, text="✅ OK: 0",
+                                     font=ctk.CTkFont(size=14), text_color="#22c55e")
+        self.dash_ok.pack(side="left", padx=15, pady=10)
+        self.dash_hata = ctk.CTkLabel(self.dash_ist, text="❌ HATA: 0",
+                                       font=ctk.CTkFont(size=14), text_color="#ef4444")
+        self.dash_hata.pack(side="left", padx=15, pady=10)
+        self.dash_uyari = ctk.CTkLabel(self.dash_ist, text="⚠️ UYARI: 0",
+                                        font=ctk.CTkFont(size=14), text_color="#facc15")
+        self.dash_uyari.pack(side="left", padx=15, pady=10)
+
+        self.dash_surum = ctk.CTkLabel(
+            self._dashboard_pencere, text="",
+            font=ctk.CTkFont(size=11), text_color="#888888",
+        )
+        self.dash_surum.pack(padx=20, pady=(10, 5), anchor="w")
+
+        self.dash_grafik = ctk.CTkFrame(self._dashboard_pencere, corner_radius=8)
+        self.dash_grafik.pack(fill="x", padx=20, pady=5)
+        ctk.CTkLabel(self.dash_grafik, text="HATA Durumu — Son Kontroller",
+                      font=ctk.CTkFont(size=12, weight="bold")).pack(padx=10, pady=(10, 5), anchor="w")
+        self.dash_barlar = ctk.CTkFrame(self.dash_grafik, fg_color="transparent")
+        self.dash_barlar.pack(fill="x", padx=10, pady=(0, 10))
+
+        self.dash_tablo_frame = ctk.CTkFrame(self._dashboard_pencere)
+        self.dash_tablo_frame.pack(fill="both", expand=True, padx=20, pady=(5, 15))
+        self.dash_tablo = ttk.Treeview(
+            self.dash_tablo_frame,
+            columns=("dosya", "durum", "ozet", "tarih"),
+            show="headings", height=5, selectmode="browse",
+        )
+        self.dash_tablo.heading("dosya", text="Dosya")
+        self.dash_tablo.heading("durum", text="Durum")
+        self.dash_tablo.heading("ozet", text="Özet")
+        self.dash_tablo.heading("tarih", text="Tarih")
+        self.dash_tablo.column("dosya", width=150)
+        self.dash_tablo.column("durum", width=70)
+        self.dash_tablo.column("ozet", width=300)
+        self.dash_tablo.column("tarih", width=120)
+        scroll = ttk.Scrollbar(self.dash_tablo_frame, orient="vertical", command=self.dash_tablo.yview)
+        self.dash_tablo.configure(yscrollcommand=scroll.set)
+        self.dash_tablo.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+        self.dash_tablo.tag_configure("ok", foreground="#22c55e")
+        self.dash_tablo.tag_configure("hata", foreground="#ef4444")
+        self.dash_tablo.tag_configure("uyari", foreground="#facc15")
+
+        ctk.CTkButton(
+            self._dashboard_pencere, text="🔄 Yenile", width=100,
+            fg_color="#555555", hover_color="#444444",
+            command=self._dashboard_guncelle,
+        ).pack(pady=(0, 15))
+
+        self.after(200, self._dashboard_guncelle)
+
+    def _dashboard_kapat(self) -> None:
+        if self._dashboard_pencere is not None:
+            self._dashboard_pencere.destroy()
+            self._dashboard_pencere = None
+
+    def _dashboard_guncelle(self) -> None:
+        if self._dashboard_pencere is None:
+            return
+        try:
+            if istatistik_getir is not None:
+                ist = istatistik_getir()
+                toplam = ist.get("toplam", 0)
+                ok = ist.get("ok", 0)
+                hata = ist.get("hata", 0)
+                uyari = ist.get("uyari", 0)
+                self.dash_toplam.configure(text=f"TOPLAM: {toplam}")
+                self.dash_ok.configure(text=f"✅ OK: {ok}")
+                self.dash_hata.configure(text=f"❌ HATA: {hata}")
+                self.dash_uyari.configure(text=f"⚠️ UYARI: {uyari}")
+
+            if gc is not None:
+                surum = gc.simdiki_surum()
+                self.dash_surum.configure(text=f"v{surum}")
+
+            if kontrol_sonuclari_getir is not None:
+                for cocuk in self.dash_tablo.get_children():
+                    self.dash_tablo.delete(cocuk)
+                sonuclar = kontrol_sonuclari_getir(limit=50)
+                for s in sonuclar:
+                    tag = "ok" if s["durum"] == "OK" else ("uyari" if s["durum"] == "UYARI" else "hata")
+                    self.dash_tablo.insert("", "end", values=(
+                        s.get("dosya", ""), s.get("durum", ""), s.get("ozet", ""), s.get("kayit_tarihi", ""),
+                    ), tags=(tag,))
+        except Exception:
+            pass
+
+    # --- Queue listener ---
     def _kuyrugu_dinle(self) -> None:
         try:
             while True:
