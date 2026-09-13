@@ -350,6 +350,8 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._kontrol_arama(veri)
         elif yol == "/api/kontrol/gecmis-detay":
             self._kontrol_gecmis_detay(veri)
+        elif yol == "/api/rapor_gecmis-detay":
+            self._rapor_gemis_detay(veri)
         elif yol == "/api/ayar_dil":
             self._ayar_dil(veri)
         else:
@@ -542,6 +544,24 @@ class ApiHandler(BaseHTTPRequestHandler):
                 durum=durum or None,
             )
             self._json({"ok": True, "kayitlar": kayitlar})
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+
+    def _rapor_gemis_detay(self, veri: dict) -> None:
+        try:
+            from veri_tabani import rapor_gecmis_getir, baglanti_olustur
+            kid = int(veri.get("id", 0))
+            if kid <= 0:
+                self._json({"ok": False, "hata": "Gecerli id zorunlu"})
+                return
+            conn = baglanti_olustur()
+            c = conn.cursor()
+            row = c.execute("SELECT * FROM rapor_gecmis WHERE id = ?", (kid,)).fetchone()
+            conn.close()
+            if not row:
+                self._json({"ok": False, "hata": "Rapor bulunamadi"})
+                return
+            self._json({"ok": True, "detay": dict(row)})
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})
 

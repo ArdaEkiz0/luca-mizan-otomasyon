@@ -376,6 +376,16 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="raporDetayModal" style="display:none;" onclick="raporDetayModalKapat(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-baseline">
+      <h2 id="raporDetayBaslik">Rapor Detayı</h2>
+      <button onclick="raporDetayModalKapat()">&times;</button>
+    </div>
+    <div class="modal-grid" id="raporDetayGrid"></div>
+  </div>
+</div>
+
 <script src="/app.js"></script>
 </body>
 </html>

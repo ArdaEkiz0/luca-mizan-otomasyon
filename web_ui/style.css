@@ -562,6 +562,9 @@ body {
 .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin-bottom: 14px; }
 .modal-grid .mg-sol { color: var(--metin-soluk); font-size: 12px; }
 .modal-grid .mg-sag { font-weight: 600; font-size: 12px; }
+.modal-grid .mg-sag.ok { color: var(--yesil); }
+.modal-grid .mg-sag.hata { color: var(--kirmizi); }
+.modal-grid .mg-sag.uyari { color: #facc15; }
 .modal-ihlaller { margin-top: 8px; }
 .modal-ihlaller h3 { font-size: 13px; color: var(--metin-soluk); margin-bottom: 6px; }
 .modal-ihlaller .ihl-satir {

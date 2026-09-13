@@ -843,6 +843,12 @@ function kontrolDetayModalKapat(e) {
   if (modal) modal.style.display = "none";
 }
 
+function raporDetayModalKapat(e) {
+  if (e && e.target !== e.currentTarget) return;
+  const modal = sec("raporDetayModal");
+  if (modal) modal.style.display = "none";
+}
+
 async function kontrolDetay(id) {
   const modal = sec("kontrolDetayModal");
   if (!modal) return;
@@ -891,6 +897,48 @@ async function kontrolDetay(id) {
         '</div>';
       });
       ihlallerDiv.innerHTML = ih;
+    }
+  } catch (e) {
+    if (grid) grid.innerHTML = '<div class="bos-liste">Bağlantı hatası.</div>';
+  }
+}
+
+function raporDetayModalKapat(e) {
+  if (e && e.target !== e.currentTarget) return;
+  const modal = sec("raporDetayModal");
+  if (modal) modal.style.display = "none";
+}
+
+async function raporDetay(id) {
+  const modal = sec("raporDetayModal");
+  if (!modal) return;
+  modal.style.display = "flex";
+  const grid = sec("raporDetayGrid");
+  const baslik = sec("raporDetayBaslik");
+  if (grid) grid.innerHTML = '<div class="bos-liste">Yükleniyor...</div>';
+  if (baslik) baslik.textContent = "Rapor Detayı";
+  try {
+    const r = await apiGonder("/api/rapor_gecmis-detay", { id: id });
+    if (!r.ok) {
+      if (grid) grid.innerHTML = '<div class="bos-liste">Hata: ' + muhafaza(r.hata || "bilinmiyor") + '</div>';
+      return;
+    }
+    const d = r.detay || {};
+    if (baslik) baslik.textContent = muhafaza(d.urun_adi || d.kisa_ad || "Rapor Detayı");
+    if (grid) {
+      let gh = "";
+      gh += '<div class="mg-sol">Tarih</div><div class="mg-sag">' + muhafaza(d.tarih || "").slice(0, 16) + '</div>';
+      gh += '<div class="mg-sol">KŞ</div><div class="mg-sag">' + muhafaza(d.kisi_no || "") + '</div>';
+      gh += '<div class="mg-sol">Ürün</div><div class="mg-sag">' + muhafaza(d.urun_adi || "") + '</div>';
+      gh += '<div class="mg-sol">Kod</div><div class="mg-sag">' + muhafaza(d.urun_kodu || "") + '</div>';
+      gh += '<div class="mg-sol">Müşteri</div><div class="mg-sag">' + muhafaza(d.musteri_kodu || "") + '</div>';
+      gh += '<div class="mg-sol">Hafi</div><div class="mg-sag">' + muhafaza(d.urun_hafi || "") + '</div>';
+      gh += '<div class="mg-sol">Tip</div><div class="mg-sag">' + muhafaza(d.rapor_tipi || "") + '</div>';
+      gh += '<div class="mg-sol">Sorgu</div><div class="mg-sag" style="color:var(--turkuaz);">' + (d.sorgu_sayisi || 0) + '</div>';
+      gh += '<div class="mg-sol">Süre</div><div class="mg-sag">' + (d.sure_saniye || 0) + 's</div>';
+      gh += '<div class="mg-sol">Durum</div><div class="mg-sag ' + (d.durum || "").toLowerCase() + '">' + (d.durum || "") + '</div>';
+      gh += '<div class="mg-sol">Dosya</div><div class="mg-sag" style="font-size:10px;">' + muhafaza(d.rapor_dosyasi || "") + '</div>';
+      grid.innerHTML = gh;
     }
   } catch (e) {
     if (grid) grid.innerHTML = '<div class="bos-liste">Bağlantı hatası.</div>';
@@ -1256,7 +1304,7 @@ function gecmisYukle() {
       const rozet = k.durum === "OK"
         ? '<span class="durum-rozet ok">OK</span>'
         : '<span class="durum-rozet hata">' + muhafaza(k.durum) + '</span>';
-      html += '<tr class="satir-giris">'
+      html += '<tr class="satir-giris" style="cursor:pointer;" onclick="raporDetay(' + k.id + ')" title="Detayını görüntüle">'
         + '<td>' + muhafaza((k.tarih || "").slice(0, 16)) + '</td>'
         + '<td>' + muhafaza(k.kisi_no || k.kisa_ad || "") + '</td>'
         + '<td>' + muhafaza(k.urun_adi || "") + '</td>'
