@@ -1019,82 +1019,9 @@ async function musteriDetay(kisaAd) {
   }
 }
 
-/* ---------- Veritabani Yedekleme ---------- */
-async function veritabaniYedekle() {
-  const btn = sec("yedekleBtn");
-  if (btn) btn.disabled = true;
-  try {
-    const r = await apiGonder("/api/veritabani-yedekleme", {});
-    if (r.ok) {
-      toastGoster("basarili", "Yedek olusturuldu: " + r.yedek_adi);
-      logEkle("basarili", "Veritabani yedeklendi: " + r.yedek_adi + " (" + Math.round(r.boyut / 1024) + " KB)");
-      yedekListeYukle();
-    } else {
-      toastGoster("hata", "Yedekleme basarisiz: " + (r.hata || "bilinmiyor"));
-      logEkle("hata", "Yedekleme hatasi: " + (r.hata || "bilinmiyor"));
-    }
-  } catch (e) {
-    toastGoster("hata", "Baglanti hatasi.");
-    logEkle("hata", "Yedekleme baglanti hatasi.");
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-
-async function veritabaniGeriYukle() {
-  const liste = sec("yedekListe");
-  const yedek = liste ? liste.value : "";
-  if (!yedek) {
-    toastGoster("uyari", "Lutfen bir yedek secin.");
-    return;
-  }
-  if (!confirm('Veritabanini "' + yedek + '" yedegine geri yuklemek istediginize emin misiniz?\nMevcut veriler degisebilir.')) return;
-  const btn = sec("geriYukleBtn");
-  if (btn) btn.disabled = true;
-  try {
-    const r = await apiGonder("/api/veritabani-geri-yukle", { yedek_adi: yedek });
-    if (r.ok) {
-      toastGoster("basarili", "Veritabani geri yuklendi!");
-      logEkle("basarili", "Veritabani geri yuklendi: " + yedek);
-    } else {
-      toastGoster("hata", "Geri yukleme basarisiz: " + (r.hata || "bilinmiyor"));
-      logEkle("hata", "Geri yukleme hatasi: " + (r.hata || "bilinmiyor"));
-    }
-  } catch (e) {
-    toastGoster("hata", "Baglanti hatasi.");
-    logEkle("hata", "Geri yukleme baglanti hatasi.");
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-
-async function yedekListeYukle() {
-  try {
-    const r = await fetch("/api/yedekler").then(m => m.json());
-    const liste = sec("yedekListe");
-    if (!liste) return;
-    const onceki = liste.value;
-    liste.innerHTML = '<option value="">— Yedek secin —</option>';
-    if (r.ok && r.yedekler) {
-      r.yedekler.forEach(y => {
-        const opt = document.createElement("option");
-        opt.value = y.adi;
-        opt.textContent = y.adi + " (" + Math.round(y.boyut / 1024) + " KB)";
-        liste.appendChild(opt);
-      });
-      if (onceki) liste.value = onceki;
-    }
-  } catch (e) {}
-}
-
-function yedekListesiniGuncelle() {
-  yedekListeYukle();
-}
-
 /* ---------- Giriş ---------- */
 secenekDoldur();
 durumPoll();
-yedekListeYukle();
 dilYukle();
 guncellemeKontrolEt();
 

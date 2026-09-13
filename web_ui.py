@@ -264,9 +264,6 @@ class ApiHandler(BaseHTTPRequestHandler):
         if yol == "/api/docs":
             self._api_docs()
             return
-        if yol == "/api/yedekler":
-            self._yedekleri_listele()
-            return
 
         # Statik dosyalar
         if yol in ("/", "/index.html"):
@@ -357,10 +354,6 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._rapor_gemis_detay(veri)
         elif yol == "/api/musteri-detay":
             self._musteri_detay(veri)
-        elif yol == "/api/veritabani-yedekleme":
-            self._veritabani_yedekleme()
-        elif yol == "/api/veritabani-geri-yukle":
-            self._veritabani_geri_yukle(veri)
         elif yol == "/api/ayar_dil":
             self._ayar_dil(veri)
         else:
@@ -1097,57 +1090,6 @@ class ApiHandler(BaseHTTPRequestHandler):
                 ih["oneri"] = hata_onusu_ara(ih.get("kural_id", ""), ih.get("hesap_kodu", ""), ih.get("mesaj", ""))
             detay["ihlaller"] = ihlaller
             self._json({"ok": True, "detay": detay})
-        except Exception as e:
-            self._json({"ok": False, "hata": str(e)})
-
-    def _yedekleri_listele(self) -> None:
-        try:
-            yedekler = Path(os.getcwd()).resolve() / "yedekler"
-            if not yedekler.exists():
-                self._json({"ok": True, "yedekler": []})
-                return
-            dosyalar = sorted(yedekler.glob("mizan_*.db"), reverse=True)
-            liste = []
-            for d in dosyalar[:20]:
-                boyut = d.stat().st_size
-                liste.append({"adi": d.name, "boyut": boyut, "tarih": d.stem.replace("mizan_", "")})
-            self._json({"ok": True, "yedekler": liste})
-        except Exception as e:
-            self._json({"ok": False, "hata": str(e)})
-
-    def _veritabani_yedekleme(self) -> None:
-        try:
-            import shutil
-            from datetime import datetime as _dt
-            db_yol = Path(os.getcwd()).resolve() / "mizan_kontrol.db"
-            if not db_yol.exists():
-                self._json({"ok": False, "hata": "Veritabani bulunamadi"})
-                return
-            yedekler = Path(os.getcwd()).resolve() / "yedekler"
-            yedekler.mkdir(exist_ok=True)
-            zaman = _dt.now().strftime("%Y%m%d_%H%M%S")
-            yedek_adi = f"mizan_{zaman}.db"
-            yedek_yol = yedekler / yedek_adi
-            shutil.copy2(str(db_yol), str(yedek_yol))
-            boyut = yedek_yol.stat().st_size
-            self._json({"ok": True, "yedek_adi": yedek_adi, "yol": str(yedek_yol), "boyut": boyut})
-        except Exception as e:
-            self._json({"ok": False, "hata": str(e)})
-
-    def _veritabani_geri_yukle(self, veri: dict) -> None:
-        try:
-            import shutil
-            yedek_adi = str(veri.get("yedek_adi", ""))
-            if not yedek_adi:
-                self._json({"ok": False, "hata": "Yedek adi gerekli"})
-                return
-            yedek_yol = Path(os.getcwd()).resolve() / "yedekler" / yedek_adi
-            if not yedek_yol.exists():
-                self._json({"ok": False, "hata": "Yedek bulunamadi"})
-                return
-            db_yol = Path(os.getcwd()).resolve() / "mizan_kontrol.db"
-            shutil.copy2(str(yedek_yol), str(db_yol))
-            self._json({"ok": True, "mesaj": "Veritabani geri yuklendi: " + yedek_adi})
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})
 
