@@ -1002,8 +1002,13 @@ class ApiHandler(BaseHTTPRequestHandler):
     def _kontrol_arama(self, veri: dict) -> None:
         try:
             from veri_tabani import kontrol_sonuclari_getir
+            tumu = str(veri.get("tumu", "")).lower() == "true"
             firma = str(veri.get("firma", ""))
             durum = str(veri.get("durum", ""))
+            if tumu:
+                sonuclar = kontrol_sonuclari_getir(limit=50)
+                self._json({"ok": True, "sonuclar": sonuclar})
+                return
             if not firma and not durum:
                 self._json({"ok": True, "sonuclar": []})
                 return

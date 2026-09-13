@@ -748,6 +748,35 @@ async function kontrolGecmisAra() {
   }
 }
 
+async function kontrolGecmisTumu() {
+  const liste = sec("kontrolGecmisListe");
+  liste.innerHTML = '<div class="bos-liste">Yükleniyor...</div>';
+  liste.style.display = "block";
+  try {
+    const r = await apiGonder("/api/kontrol/arama", { tumu: true });
+    if (!r.ok) {
+      liste.innerHTML = '<div class="bos-liste">Hata: ' + muhafaza(r.hata || "bilinmiyor") + '</div>';
+      return;
+    }
+    const sonuclar = r.sonuclar || [];
+    if (sonuclar.length === 0) {
+      liste.innerHTML = '<div class="bos-liste">Geçmiş kontrol kaydı yok.</div>';
+      return;
+    }
+    let html = '<div style="padding:8px 12px;font-weight:600;">Geçmiş Kontrol Raporları — Tümü (' + sonuclar.length + ')</div>';
+    sonuclar.forEach(s => {
+      const durumRenk = s.durum === "OK" ? "var(--yesil)" : s.durum === "UYARI" ? "#facc15" : "var(--kirmizi)";
+      html += '<div class="kontrol-kayit ok" style="cursor:default;border-left:4px solid ' + durumRenk + ';">' +
+        '<span class="kontrol-ad">' + muhafaza(s.firma || s.dosya) + '</span>' +
+        '<span class="kontrol-ozet">' + (s.hata_sayisi || 0) + 'HATA ' + (s.uyari_sayisi || 0) + 'UYARI — ' + muhafaza(s.kontrol_tarihi || '') + '</span>' +
+      '</div>';
+    });
+    liste.innerHTML = html;
+  } catch (e) {
+    liste.innerHTML = '<div class="bos-liste">Bağlantı hatası.</div>';
+  }
+}
+
 /* ---------- Giriş ---------- */
 secenekDoldur();
 durumPoll();
