@@ -412,6 +412,22 @@ function mizanKontrol() {
 
     kontrolFiltrele("tum");
 
+    // HATA dosyalari bildirimi
+    const hataSayisi = ist.hata || 0;
+    const uyariSayisi = ist.uyari || 0;
+    if (hataSayisi > 0) {
+      const hataListe = sonuclar.filter(s => s.durum === "HATA").map(s => s.firma || s.dosya);
+      const mesaj = hataSayisi + " dosyada HATA bulundu:\n\n" + hataListe.join("\n");
+      toastGoster("hata", hataSayisi + " dosyada HATA var! Kontrol listesini inceleyin.");
+      setTimeout(() => {
+        alert("⚠️ MİZAN KONTROL — " + hataSayisi + " HATA\n\n" + hataListe.join("\n") + "\n\nLütfen HATA içeren dosyaları kontrol edin.");
+      }, 800);
+    } else if (uyariSayisi > 0) {
+      toastGoster("uyari", uyariSayisi + " dosyada UYARI var.");
+    } else {
+      toastGoster("basarili", "Tum dosyalar OK!");
+    }
+
     // Loglara ekle
     sonuclar.forEach(s => {
       if (s.kontrol_dosyasi) {
@@ -457,6 +473,8 @@ function kontrolFiltrele(filtre) {
     const ayrinti = s.ihlaller || [];
     if (s.durum === "OK") {
       kayit.classList.add("ok");
+    } else if (s.durum === "UYARI") {
+      kayit.classList.add("uyari");
     } else {
       kayit.classList.add("hata");
     }

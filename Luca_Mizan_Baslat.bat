@@ -85,7 +85,7 @@ if errorlevel 1 (
     echo [UYARI] Kontrol motoru testi basarisiz. Devam ediliyor...
 )
 
-call venv\Scripts\python.exe arayuz.py
+call venv\Scripts\python.exe gui_app.py
 
 echo.
 echo ============================================
