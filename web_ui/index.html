@@ -178,15 +178,19 @@
         <div class="bos-liste">Veri yok.</div>
       </div>
     </div>
-    <div style="padding:10px 0; display:flex; align-items:center; gap:10px; justify-content:space-between;">
+    <div style="padding:10px 0; text-align:center;">
       <span id="versiyonBilgi" style="font-size:12px; color:var(--metin-soluk);">v0.0.0</span>
-      <button class="btn btn-yesil btn-kucuk" id="guncelleBtn" onclick="updateApp()" style="display:none;">🔄 Güncelle</button>
     </div>
   </section>
 
   <!-- Dashboard Ac butonu -->
   <div style="text-align:center; padding:10px 0;">
     <button class="btn btn-mor btn-kucuk" onclick="dashboardAc()">📊 Dashboard</button>
+  </div>
+
+  <!-- Güncelleme Butonu (Her zaman görünür) -->
+  <div id="guncelleBar" style="text-align:center; padding:5px 0; display:none;">
+    <button class="btn btn-yesil btn-kucuk" onclick="updateApp()">🔄 Güncelle</button>
   </div>
 
   <!-- Indirilen raporlar -->

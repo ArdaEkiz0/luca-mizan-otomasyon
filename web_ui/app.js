@@ -127,8 +127,8 @@ async function dashboardYukle() {
       sec("versiyonBilgi").textContent = "v" + r.surum + (r.guncelleme && !r.guncelleme.guncellememevcut ? " — Güncelleme mevcut" : " — Güncel");
     }
     if (r.guncelleme && !r.guncelleme.guncellememevcut) {
-      const btn = document.getElementById("guncelleBtn");
-      if (btn) btn.style.display = "inline-block";
+      const bar = document.getElementById("guncelleBar");
+      if (bar) bar.style.display = "block";
     }
     const barlar = sec("grafikBarlar");
     barlar.innerHTML = "";
@@ -505,8 +505,8 @@ async function guncellemeKontrolEt() {
     if (r && r.ok && !r.guncelleme.guncellememevcut) {
       toastGoster("uyari", r.guncelleme.mesaj || ("Yeni sürüm var: " + (r.guncelleme.yeni || "")));
       setTimeout(() => {
-        const btn = document.getElementById("guncelleBtn");
-        if (btn) btn.style.display = "inline-block";
+        const bar = document.getElementById("guncelleBar");
+        if (bar) bar.style.display = "block";
       }, 2000);
     }
   } catch (e) {
