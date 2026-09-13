@@ -475,60 +475,86 @@ class LucaGUI(ctk.CTk):
         self.indirilen_raporlar: list[dict] = []
 
         # --- Mizan Kontrol ---
-        kontrol_frame = ctk.CTkFrame(self, fg_color=RENKLER["panel_arka"], corner_radius=10)
+        kontrol_frame = ctk.CTkFrame(self, fg_color="#1a0f0f", corner_radius=10)
         kontrol_frame.grid(row=5, column=0, padx=20, y=(5, 5), sticky="nsew")
         self.grid_rowconfigure(5, weight=1)
+
+        kontrol_aciklama = ctk.CTkLabel(
+            kontrol_frame,
+            text="İki mizan yükleyin — hangi hatada hangisi gösteriliyor ↓",
+            font=ctk.CTkFont(size=10, italic=True),
+            text_color="#888888",
+        )
+        kontrol_aciklama.pack(fill="x", padx=15, pady=(8, 0))
 
         kontrol_baslik_frame = ctk.CTkFrame(kontrol_frame, fg_color="transparent")
         kontrol_baslik_frame.pack(fill="x", padx=15, pady=(10, 5))
 
         ctk.CTkLabel(
-            kontrol_baslik_frame, text="Mizan Kontrolü",
-            font=ctk.CTkFont(size=14, weight="bold"),
-            text_color=RENKLER["baslik"],
+            kontrol_baslik_frame, text="🔴 Mizan Kontrolü",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color="#ef4444",
         ).pack(side="left")
 
         self.kontrol_butonlar = ctk.CTkFrame(kontrol_frame, fg_color="transparent")
         self.kontrol_butonlar.pack(fill="x", padx=15, pady=(0, 5))
 
         self.kontrol_btn = ctk.CTkButton(
-            self.kontrol_butonlar, text="Raporlari Kontrol Et", width=160,
-            fg_color=RENKLER["buton_rapor"], hover_color=RENKLER["buton_rapor_hover"],
+            self.kontrol_butonlar, text="🔍 Raporlari Kontrol Et", width=200,
+            fg_color="#dc2626", hover_color="#b91c1c",
             command=self._kontrol_raporlari, state="disabled",
         )
         self.kontrol_btn.pack(side="left", padx=(0, 8))
 
         self.toplu_kontrol_btn = ctk.CTkButton(
-            self.kontrol_butonlar, text="Tum Raporlari Kontrol Et", width=180,
-            fg_color=RENKLER["buton_toplu"], hover_color=RENKLER["buton_toplu_hover"],
+            self.kontrol_butonlar, text="📦 Tum Raporlari Kontrol Et", width=220,
+            fg_color="#7c3aed", hover_color="#6d28d9",
             command=self._toplu_kontrol_raporlari, state="disabled",
         )
         self.toplu_kontrol_btn.pack(side="left", padx=(0, 8))
 
         # Istatistik
-        ist_frame = ctk.CTkFrame(kontrol_frame, fg_color="transparent")
+        ist_frame = ctk.CTkFrame(kontrol_frame, fg_color="#0f0f0f", corner_radius=8)
         ist_frame.pack(fill="x", padx=15, pady=(0, 5))
 
-        self.ist_toplam = ctk.CTkLabel(ist_frame, text="Toplam: 0", font=ctk.CTkFont(size=11))
-        self.ist_toplam.pack(side="left", padx=4)
-        self.ist_ok = ctk.CTkLabel(ist_frame, text="OK: 0", font=ctk.CTkFont(size=11), text_color=RENKLER["durum_basarili"])
-        self.ist_ok.pack(side="left", padx=4)
-        self.ist_hata = ctk.CTkLabel(ist_frame, text="HATA: 0", font=ctk.CTkFont(size=11), text_color=RENKLER["durum_hata"])
-        self.ist_hata.pack(side="left", padx=4)
-        self.ist_uyari = ctk.CTkLabel(ist_frame, text="UYARI: 0", font=ctk.CTkFont(size=11), text_color="#facc15")
-        self.ist_uyari.pack(side="left", padx=4)
+        self.ist_baslık = ctk.CTkLabel(ist_frame, text="📊 SONUÇ",
+                                        font=ctk.CTkFont(size=10, weight="bold"),
+                                        text_color="#888888")
+        self.ist_baslık.pack(padx=10, pady=(6, 0), anchor="w")
+
+        ist_bar = ctk.CTkFrame(ist_frame, fg_color="transparent")
+        ist_bar.pack(fill="x", padx=10, pady=(0, 6))
+
+        self.ist_toplam = ctk.CTkLabel(ist_bar, text="TOPLAM: 0",
+                                        font=ctk.CTkFont(size=13, weight="bold"),
+                                        text_color="#ffffff")
+        self.ist_toplam.pack(side="left", padx=10, pady=4)
+        self.ist_ok = ctk.CTkLabel(ist_bar, text="✅ OK: 0",
+                                    font=ctk.CTkFont(size=13, weight="bold"),
+                                    text_color="#22c55e")
+        self.ist_ok.pack(side="left", padx=10)
+        self.ist_hata = ctk.CTkLabel(ist_bar, text="❌ HATA: 0",
+                                       font=ctk.CTkFont(size=13, weight="bold"),
+                                       text_color="#ef4444")
+        self.ist_hata.pack(side="left", padx=10)
+        self.ist_uyari = ctk.CTkLabel(ist_bar, text="⚠️ UYARI: 0",
+                                       font=ctk.CTkFont(size=13, weight="bold"),
+                                       text_color="#facc15")
+        self.ist_uyari.pack(side="left", padx=10)
 
         # Filtre
         filtre_bar = ctk.CTkFrame(kontrol_frame, fg_color="transparent")
         filtre_bar.pack(fill="x", padx=15, pady=(0, 5))
 
-        ctk.CTkLabel(filtre_bar, text="Filtre:", text_color="#888888", font=ctk.CTkFont(size=10)).pack(side="left")
+        ctk.CTkLabel(filtre_bar, text="🔎 Filtre:", text_color="#888888",
+                      font=ctk.CTkFont(size=10)).pack(side="left")
         self.kontrol_filtre = ctk.StringVar(value="tum")
-        for txt, val in [("Tümü", "tum"), ("OK", "OK"), ("HATA", "HATA"), ("UYARI", "UYARI")]:
+        for txt, val in [("Tümü", "tum"), ("✅ OK", "OK"), ("❌ HATA", "HATA"), ("⚠️ UYARI", "UYARI")]:
             btn = ctk.CTkButton(
-                filtre_bar, text=txt, width=70, height=24,
-                fg_color="#3d3d3d" if val != "tum" else RENKLER["buton_rapor"],
-                hover_color="#4a4a4a",
+                filtre_bar, text=txt, width=80, height=26,
+                fg_color="#2a2a2a" if val != "tum" else "#dc2626",
+                text_color="#ffffff" if val != "tum" else "#cccccc",
+                hover_color="#3a3a3a",
                 command=lambda v=val: self._kontrol_filtrele(v),
             )
             btn.pack(side="left", padx=2)
@@ -547,15 +573,15 @@ class LucaGUI(ctk.CTk):
         export_bar = ctk.CTkFrame(kontrol_frame, fg_color="transparent")
         export_bar.pack(fill="x", padx=15, pady=(0, 5))
 
-        ctk.CTkButton(export_bar, text="JSON İndir", width=100, height=24,
-                      fg_color="#28a745", hover_color="#218838",
-                      command=self._kontrol_export_json).pack(side="left", padx=(0, 4))
-        ctk.CTkButton(export_bar, text="CSV İndir", width=100, height=24,
-                      fg_color="#17a2b8", hover_color="#138496",
-                      command=self._kontrol_export_csv).pack(side="left", padx=(0, 4))
-        ctk.CTkButton(export_bar, text="PDF İndir", width=100, height=24,
-                      fg_color="#dc3545", hover_color="#c82333",
-                      command=self._kontrol_export_pdf).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(export_bar, text="📄 JSON İndir", width=120, height=26,
+                       fg_color="#16a34a", hover_color="#15803d",
+                       command=self._kontrol_export_json).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(export_bar, text="📊 CSV İndir", width=120, height=26,
+                       fg_color="#0891b2", hover_color="#0e7490",
+                       command=self._kontrol_export_csv).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(export_bar, text="📑 PDF İndir", width=120, height=26,
+                       fg_color="#dc2626", hover_color="#b91c1c",
+                       command=self._kontrol_export_pdf).pack(side="left", padx=(0, 4))
 
         # Sonuclar tablosu
         kontrol_tablo_frame = ctk.CTkFrame(kontrol_frame, fg_color="transparent")
@@ -563,39 +589,38 @@ class LucaGUI(ctk.CTk):
 
         stil3 = ttk.Style()
         stil3.configure("Kontrol.Treeview",
-                        background="#1e1e1e", foreground="#d4d4d4",
-                        fieldbackground="#1e1e1e", rowheight=24,
-                        font=("Consolas", 9))
+                        background="#0f0f0f", foreground="#d4d4d4",
+                        fieldbackground="#0f0f0f", rowheight=28,
+                        font=("Segoe UI", 10))
         stil3.configure("Kontrol.Treeview.Heading",
-                        background="#3d3d3d", foreground="#ffffff",
-                        font=("Segoe UI", 9, "bold"))
+                        background="#1f1f1f", foreground="#ef4444",
+                        font=("Segoe UI", 10, "bold"))
         stil3.map("Kontrol.Treeview", background=[("selected", "#1a8cff")])
 
         kontrol_kolonlar = ("dosya", "durum", "ozet", "hata", "uyari", "firma")
         self.kontrol_tablo = ttk.Treeview(
             kontrol_tablo_frame, columns=kontrol_kolonlar, show="headings",
-            height=5, selectmode="browse", style="Kontrol.Treeview",
+            height=6, selectmode="browse", style="Kontrol.Treeview",
         )
-        self.kontrol_tablo.heading("dosya", text="Dosya")
         self.kontrol_tablo.heading("durum", text="Durum")
         self.kontrol_tablo.heading("ozet", text="Özet")
         self.kontrol_tablo.heading("hata", text="Hata")
         self.kontrol_tablo.heading("uyari", text="Uyari")
-        self.kontrol_tablo.heading("firma", text="Firma")
-        self.kontrol_tablo.column("dosya", width=200)
-        self.kontrol_tablo.column("durum", width=60)
-        self.kontrol_tablo.column("ozet", width=200)
+        self.kontrol_tablo.column("durum", width=70)
+        self.kontrol_tablo.column("ozet", width=220)
         self.kontrol_tablo.column("hata", width=40)
         self.kontrol_tablo.column("uyari", width=40)
-        self.kontrol_tablo.column("firma", width=120)
+        self.kontrol_tablo.column("firma", width=130)
         self.kontrol_tablo.pack(side="left", fill="both", expand=True)
         self.kontrol_tablo.bind("<Double-1>", lambda e: self._kontrol_detay_goster())
-        self.kontrol_tablo.tag_configure("ok", foreground="#28a745")
-        self.kontrol_tablo.tag_configure("hata", foreground="#dc3545")
 
         kaydirma3 = ttk.Scrollbar(kontrol_tablo_frame, orient="vertical", command=self.kontrol_tablo.yview)
         self.kontrol_tablo.configure(yscrollcommand=kaydirma3.set)
         kaydirma3.pack(side="right", fill="y")
+
+        self.kontrol_tablo.tag_configure("ok", foreground="#22c55e", background="#0a1a0a")
+        self.kontrol_tablo.tag_configure("hata", foreground="#ef4444", background="#1a0a0a")
+        self.kontrol_tablo.tag_configure("uyari", foreground="#facc15", background="#1a1a0a")
 
         self.kontrol_sonuclari: list[dict] = []
         self.kontrol_filtreli = "tum"
@@ -1035,7 +1060,7 @@ class LucaGUI(ctk.CTk):
             filtrelenen = [s for s in filtrelenen if tarix in s["dosya"]]
 
         for s in filtrelenen:
-            tag = "ok" if s["durum"] == "OK" else "hata"
+            tag = "ok" if s["durum"] == "OK" else ("uyari" if s["durum"] == "UYARI" else "hata")
             self.kontrol_tablo.insert("", "end", values=(
                 s["dosya"], s["durum"], s["ozet"], s["hata_sayisi"], s["uyari_sayisi"], s.get("firma", ""),
             ), tags=(tag,))
