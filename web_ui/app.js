@@ -358,6 +358,7 @@ function tabloDoldur() {
       tr.classList.add("secili");
       sec("raporBtn").disabled = calisiyor || !seciliKisaAd;
     });
+    tr.addEventListener("dblclick", () => { musteriDetay(m.kisa_ad); });
     govde.appendChild(tr);
   });
 
@@ -903,12 +904,6 @@ async function kontrolDetay(id) {
   }
 }
 
-function raporDetayModalKapat(e) {
-  if (e && e.target !== e.currentTarget) return;
-  const modal = sec("raporDetayModal");
-  if (modal) modal.style.display = "none";
-}
-
 async function raporDetay(id) {
   const modal = sec("raporDetayModal");
   if (!modal) return;
@@ -939,6 +934,82 @@ async function raporDetay(id) {
       gh += '<div class="mg-sol">Durum</div><div class="mg-sag ' + (d.durum || "").toLowerCase() + '">' + (d.durum || "") + '</div>';
       gh += '<div class="mg-sol">Dosya</div><div class="mg-sag" style="font-size:10px;">' + muhafaza(d.rapor_dosyasi || "") + '</div>';
       grid.innerHTML = gh;
+    }
+  } catch (e) {
+    if (grid) grid.innerHTML = '<div class="bos-liste">Bağlantı hatası.</div>';
+  }
+}
+
+function musteriDetayModalKapat(e) {
+  if (e && e.target !== e.currentTarget) return;
+  const modal = sec("musteriDetayModal");
+  if (modal) modal.style.display = "none";
+}
+
+async function musteriDetay(kisaAd) {
+  const modal = sec("musteriDetayModal");
+  if (!modal) return;
+  modal.style.display = "flex";
+  const grid = sec("musteriDetayGrid");
+  const baslik = sec("musteriDetayBaslik");
+  const raporDiv = sec("musteriDetayRaporlar");
+  const kontrolDiv = sec("musteriDetayKontroller");
+  if (grid) grid.innerHTML = '<div class="bos-liste">Yükleniyor...</div>';
+  if (raporDiv) raporDiv.innerHTML = '<div class="bos">Yükleniyor...</div>';
+  if (kontrolDiv) kontrolDiv.innerHTML = '<div class="bos">Yükleniyor...</div>';
+  if (baslik) baslik.textContent = "Müşteri Detayı";
+  try {
+    const r = await apiGonder("/api/musteri-detay", { kisa_ad: kisaAd });
+    if (!r.ok) {
+      if (grid) grid.innerHTML = '<div class="bos-liste">Hata: ' + muhafaza(r.hata || "bilinmiyor") + '</div>';
+      return;
+    }
+    const m = r.musteri || {};
+    if (baslik) baslik.textContent = muhafaza(m.kisa_ad || kisaAd);
+    if (grid) {
+      let gh = "";
+      gh += '<div class="mg-sol">Kısa Ad</div><div class="mg-sag">' + muhafaza(m.kisa_ad || "") + '</div>';
+      gh += '<div class="mg-sol">Uzun Ad</div><div class="mg-sag">' + muhafaza(m.uzun_ad || "") + '</div>';
+      gh += '<div class="mg-sol">Vergi Dairesi</div><div class="mg-sag">' + muhafaza(m.vergi_dairesi || "") + '</div>';
+      gh += '<div class="mg-sol">Vergi No</div><div class="mg-sag">' + muhafaza(m.vergi_no || "") + '</div>';
+      gh += '<div class="mg-sol">Toplam Rapor</div><div class="mg-sag" style="color:var(--turkuaz);">' + (r.raporlar || []).length + '</div>';
+      gh += '<div class="mg-sol">Toplam Kontrol</div><div class="mg-sag" style="color:var(--mor-acik);">' + (r.kontroller || []).length + '</div>';
+      grid.innerHTML = gh;
+    }
+    if (raporDiv) {
+      const raporlar = r.raporlar || [];
+      if (raporlar.length === 0) {
+        raporDiv.innerHTML = '<div class="bos">Rapor kaydı yok.</div>';
+      } else {
+        let rh = '<table class="tablo" style="font-size:11px;"><thead><tr><th>Tarih</th><th>Ürün</th><th>Durum</th><th>Süre</th></tr></thead><tbody>';
+        raporlar.forEach(r => {
+          const rd = (r.durum || "").toLowerCase();
+          rh += '<tr><td>' + muhafaza((r.tarih || "").slice(0, 16)) + '</td>'
+            + '<td>' + muhafaza(r.urun_adi || "") + '</td>'
+            + '<td><span class="durum-rozet ' + rd + '">' + (r.durum || "") + '</span></td>'
+            + '<td>' + (r.sure_saniye || 0) + 's</td></tr>';
+        });
+        rh += '</tbody></table>';
+        raporDiv.innerHTML = rh;
+      }
+    }
+    if (kontrolDiv) {
+      const kontroller = r.kontroller || [];
+      if (kontroller.length === 0) {
+        kontrolDiv.innerHTML = '<div class="bos">Kontrol kaydı yok.</div>';
+      } else {
+        let kh = '<table class="tablo" style="font-size:11px;"><thead><tr><th>Tarih</th><th>Dosya</th><th>Durum</th><th>HATA</th><th>UYARI</th></tr></thead><tbody>';
+        kontroller.forEach(k => {
+          const kd = (k.durum || "").toLowerCase();
+          kh += '<tr><td>' + muhafaza((k.kontrol_tarihi || "").slice(0, 16)) + '</td>'
+            + '<td>' + muhafaza(k.dosya_adi || "") + '</td>'
+            + '<td><span class="durum-rozet ' + kd + '">' + (k.durum || "") + '</span></td>'
+            + '<td>' + (k.hata_sayisi || 0) + '</td>'
+            + '<td>' + (k.uyari_sayisi || 0) + '</td></tr>';
+        });
+        kh += '</tbody></table>';
+        kontrolDiv.innerHTML = kh;
+      }
     }
   } catch (e) {
     if (grid) grid.innerHTML = '<div class="bos-liste">Bağlantı hatası.</div>';

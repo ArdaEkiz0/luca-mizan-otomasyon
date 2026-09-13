@@ -352,6 +352,8 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._kontrol_gecmis_detay(veri)
         elif yol == "/api/rapor_gecmis-detay":
             self._rapor_gemis_detay(veri)
+        elif yol == "/api/musteri-detay":
+            self._musteri_detay(veri)
         elif yol == "/api/ayar_dil":
             self._ayar_dil(veri)
         else:
@@ -562,6 +564,33 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "hata": "Rapor bulunamadi"})
                 return
             self._json({"ok": True, "detay": dict(row)})
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+
+    def _musteri_detay(self, veri: dict) -> None:
+        try:
+            from veri_tabani import rapor_gecmis_getir, kontrol_sonuclari_getir, baglanti_olustur
+            kisa_ad = str(veri.get("kisa_ad", "")).strip()
+            if not kisa_ad:
+                self._json({"ok": False, "hata": "kisa_ad zorunlu"})
+                return
+            musteri = None
+            with DURUM.kilit:
+                for m in DURUM.musteriler:
+                    if m.get("kisa_ad", "") == kisa_ad:
+                        musteri = m
+                        break
+            raporlar = rapor_gecmis_getir(kisi_no=kisa_ad, limit=20)
+            baglanti = baglanti_olustur()
+            c = baglanti.cursor()
+            rows = c.execute(
+                "SELECT * FROM kontrol_sonuclari WHERE firma_adi LIKE ? ORDER BY kontrol_tarihi DESC LIMIT 20",
+                (f"%{kisa_ad}%",)
+            ).fetchall()
+            baglanti.close()
+            kontroller = [dict(r) for r in rows]
+            self._json({"ok": True, "musteri": musteri or {"kisa_ad": kisa_ad},
+                        "raporlar": raporlar, "kontroller": kontroller})
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})
 

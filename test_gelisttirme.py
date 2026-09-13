@@ -418,3 +418,15 @@ class TestKontrolAPI:
         from web_ui import ApiHandler
         ApiHandler._rapor_gemis_detay(handler, {"id": 999999})
         assert handler.sonuc[0]["ok"] is False
+
+    def test_musteri_detay_bos(self):
+        class MockHandler:
+            def __init__(self):
+                self.sonuc = None
+            def _json(self, veri, durum=200):
+                self.sonuc = (veri, durum)
+
+        handler = MockHandler()
+        from web_ui import ApiHandler
+        ApiHandler._musteri_detay(handler, {"kisa_ad": ""})
+        assert handler.sonuc[0]["ok"] is False

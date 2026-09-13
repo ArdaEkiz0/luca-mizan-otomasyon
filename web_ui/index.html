@@ -386,6 +386,24 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="musteriDetayModal" style="display:none;" onclick="musteriDetayModalKapat(event)">
+  <div class="modal" style="max-width:700px;" onclick="event.stopPropagation()">
+    <div class="modal-baseline">
+      <h2 id="musteriDetayBaslik">Müşteri Detayı</h2>
+      <button onclick="musteriDetayModalKapat()">&times;</button>
+    </div>
+    <div class="modal-grid" id="musteriDetayGrid"></div>
+    <div class="modal-ihlaller">
+      <h3>Rapor Geçmişi</h3>
+      <div id="musteriDetayRaporlar"></div>
+    </div>
+    <div class="modal-ihlaller" style="margin-top:12px;">
+      <h3>Kontrol Geçmişi</h3>
+      <div id="musteriDetayKontroller"></div>
+    </div>
+  </div>
+</div>
+
 <script src="/app.js"></script>
 </body>
 </html>
