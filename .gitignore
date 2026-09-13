@@ -15,6 +15,5 @@ dist/
 __pycache__/
 *.pyc
 
-# Teşhis araçları (kalıcı değil)
-luca_kesfet.py
-Kesfet_Baslat.bat
+# SQLite veritabani
+*.db
