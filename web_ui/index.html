@@ -24,13 +24,19 @@
       <img src="/logo.svg" alt="Luca Mizan Otomasyonu logosu" class="logo-gorsel">
       <div class="logo-yazi">
         <span class="baslik">Luca <b>Mizan</b> Otomasyonu</span>
-        <span class="alt-baslik">Raporlarınız bir tık uzağınızda</span>
+        <span class="alt-baslik" id="altBaslik">Raporlarınız bir tık uzağınızda</span>
       </div>
     </div>
 
-    <div class="durum-rozeti" id="durumRozeti">
-      <span class="durum-nokta" id="durumNokta"></span>
-      <span class="durum-yazi" id="durumYazi">Hazir</span>
+    <div class="ust-bar-sag">
+      <span class="dil-secim" id="dilSecim">
+        <button class="dil-btn aktif" data-dil="tr" onclick="dilDegistir('tr')">TR</button>
+        <button class="dil-btn" data-dil="en" onclick="dilDegistir('en')">EN</button>
+      </span>
+      <div class="durum-rozeti" id="durumRozeti">
+        <span class="durum-nokta" id="durumNokta"></span>
+        <span class="durum-yazi" id="durumYazi">Hazir</span>
+      </div>
     </div>
   </header>
 
@@ -119,9 +125,10 @@
   <section class="kart blok blok-kontrol">
     <div class="kart-baslik">
       <span class="ikon">&#9989;</span>
-      <h2>Mizan Kontrolu</h2>
+      <h2 id="kontrolBaslik">Mizan Kontrolu</h2>
       <div class="sag-butonlar">
-        <button class="btn btn-mor btn-kucuk" onclick="mizanKontrol()">Raporlari Kontrol Et</button>
+        <input class="arama" id="kontrolArama" type="text" placeholder="Firma ara..." oninput="kontrolFiltreleAra()">
+        <button class="btn btn-mor btn-kucuk" onclick="mizanKontrol()" id="kontrolBtn">Raporlari Kontrol Et</button>
       </div>
     </div>
     <div class="kontrol-istatistik" id="kontrolIstatistik" style="display:none;">
@@ -145,6 +152,38 @@
       <div class="bos-liste">Mizan raporlari indirildikten sonra "Raporlari Kontrol Et" butonuna basin.</div>
     </div>
   </section>
+
+  <!-- Dashboard -->
+  <section class="kart blok blok-dashboard" id="blokDashboard" style="display:none;">
+    <div class="kart-baslik">
+      <span class="ikon">&#128202;</span>
+      <h2 id="dashboardBaslik">Dashboard</h2>
+      <div class="sag-butonlar">
+        <button class="btn btn-gri btn-kucuk" onclick="dashboardGizle()">&#10005;</button>
+      </div>
+    </div>
+    <div class="dash-istatistik" id="dashIstatistik">
+      <div class="dash-kutu dash-toplam"><span class="dash-rakam" id="dashToplam">0</span><span class="dash-etiket">Toplam</span></div>
+      <div class="dash-kutu dash-ok"><span class="dash-rakam" id="dashOk">0</span><span class="dash-etiket">OK</span></div>
+      <div class="dash-kutu dash-hata"><span class="dash-rakam" id="dashHata">0</span><span class="dash-etiket">HATA</span></div>
+      <div class="dash-kutu dash-uyari"><span class="dash-rakam" id="dashUyari">0</span><span class="dash-etiket">UYARI</span></div>
+    </div>
+    <div class="dash-grafik" id="dashGrafik">
+      <h3 id="grafikBaslik">HATA Durumu — Son 7 Gün</h3>
+      <div class="grafik-barlar" id="grafikBarlar"></div>
+    </div>
+    <div class="dash-tablo">
+      <h3 id="dashTabloBaslik">Son Kontroller</h3>
+      <div class="dash-tablo-sarici" id="dashTabloSarici">
+        <div class="bos-liste">Veri yok.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dashboard Ac butonu -->
+  <div style="text-align:center; padding:10px 0;">
+    <button class="btn btn-mor btn-kucuk" onclick="dashboardAc()">📊 Dashboard</button>
+  </div>
 
   <!-- Indirilen raporlar -->
   <section class="kart blok blok-raporlar">

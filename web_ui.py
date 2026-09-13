@@ -32,6 +32,14 @@ from dotenv import load_dotenv, set_key
 
 from luca_otomasyon_core import LucaOtomasyonCore, SINIF_ETIKETLERI
 
+try:
+    from veri_tabani import (
+        kontrol_sonuc_kaydet, kontrol_sonuclari_getir, istatistik_getir,
+        ayar_getir, ayar_kaydet, kural_istatistik_guncelle,
+    )
+except Exception:
+    pass
+
 # --- Yol yönetimi (PyInstaller uyumlu) ---
 # Statik arayüz dosyaları (html/css/js/svg/ico) .exe içinde paketlenir;
 # _MEIPASS geçici klasöründe açılır. Kullanıcı verisi (.env, raporlar, log)
@@ -316,6 +324,14 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._kontrol_export_csv(veri)
         elif yol == "/api/kontrol/export/pdf":
             self._kontrol_export_pdf(veri)
+        elif yol == "/api/guncelleme":
+            self._guncelleme_kontrol()
+        elif yol == "/api/kontrol/dashboard":
+            self._kontrol_dashboard()
+        elif yol == "/api/kontrol/arama":
+            self._kontrol_arama(veri)
+        elif yol == "/api/ayar_dil":
+            self._ayar_dil(veri)
         else:
             self._json({"hata": "Bilinmeyen istek"}, 404)
 
@@ -617,6 +633,23 @@ class ApiHandler(BaseHTTPRequestHandler):
             "kural_istatistik": istatistik_sonuc,
         })
 
+        try:
+            for s in sonuclar:
+                kontrol_sonuc_kaydet(
+                    dosya_adi=s["dosya"],
+                    firma_adi=s.get("firma", ""),
+                    donem=s.get("donem", ""),
+                    satir_sayisi=s.get("satir_sayisi", 0),
+                    durum=s["durum"],
+                    hata_sayisi=s.get("hata_sayisi", 0),
+                    uyari_sayisi=s.get("uyari_sayisi", 0),
+                    ihlaller=s.get("ihlaller", []),
+                )
+                for i in s.get("ihlaller", []):
+                    kural_istatistik_guncelle(i.get("kural", ""), i.get("seviye", ""))
+        except Exception:
+            pass
+
     def _kontrol_istatistik(self) -> None:
         """Kural istatistiklerini JSON olarak verir."""
         try:
@@ -736,6 +769,44 @@ class ApiHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(govde)))
             self.end_headers()
             self.wfile.write(govde)
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+
+    def _guncelleme_kontrol(self) -> None:
+        try:
+            from guncelleme_kontrolu import guncellememi_kontrol_et
+            sonuc = guncellememi_kontrol_et()
+            self._json({"ok": True, "guncelleme": sonuc})
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+
+    def _kontrol_dashboard(self) -> None:
+        try:
+            from veri_tabani import istatistik_getir, kontrol_sonuclari_getir
+            ist = istatistik_getir()
+            sonuclar = kontrol_sonuclari_getir(limit=50)
+            self._json({"ok": True, "istatistik": ist, "sonuclar": sonuclar})
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+
+    def _kontrol_arama(self, veri: dict) -> None:
+        try:
+            from veri_tabani import kontrol_sonuclari_getir
+            firma = str(veri.get("firma", ""))
+            durum = str(veri.get("durum", ""))
+            if not firma and not durum:
+                self._json({"ok": True, "sonuclar": []})
+                return
+            sonuclar = kontrol_sonuclari_getir(firma=firma or None, durum=durum or None or None)
+            self._json({"ok": True, "sonuclar": sonuclar})
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+
+    def _ayar_dil(self, veri: dict) -> None:
+        try:
+            dil = str(veri.get("dil", "tr"))
+            ayar_kaydet("dil", dil)
+            self._json({"ok": True, "dil": dil})
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})
 

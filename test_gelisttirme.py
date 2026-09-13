@@ -1,0 +1,200 @@
+import os
+import sys
+import tempfile
+import shutil
+from pathlib import Path
+
+import pytest
+
+BASE = Path(__file__).parent.resolve()
+sys.path.insert(0, str(BASE))
+
+
+# --- SQLite Tests ---
+class TestVeriTabani:
+    def setup_method(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.orig_cwd = os.getcwd()
+        os.chdir(self.tmpdir)
+
+    def teardown_method(self):
+        os.chdir(self.orig_cwd)
+        shutil.rmtree(self.tmpdir)
+
+    def test_tablolar_olusturulur(self):
+        from veri_tabani import baglanti_olustur
+        conn = baglanti_olustur()
+        c = conn.cursor()
+        c.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        tablolar = [r[0] for r in c.fetchall()]
+        conn.close()
+        assert "kontrol_sonuclari" in tablolar
+        assert "hata_ihlalleri" in tablolar
+        assert "kural_istatistik_db" in tablolar
+        assert "ayarlar" in tablolar
+
+    def test_kontrol_sonucu_kaydet(self):
+        from veri_tabani import kontrol_sonuc_kaydet, kontrol_sonuclari_getir
+        kid = kontrol_sonuc_kaydet(
+            dosya_adi="test.xlsx", firma_adi="Test A.S.",
+            durum="HATA", hata_sayisi=2, uyari_sayisi=1,
+            ihlaller=[{"kural_id": "K1", "hesap_kodu": "100", "seviye": "HATA", "mesaj": "test"}],
+        )
+        assert kid > 0
+        sonuclar = kontrol_sonuclari_getir()
+        assert len(sonuclar) == 1
+        assert sonuclar[0]["dosya_adi"] == "test.xlsx"
+        assert sonuclar[0]["firma_adi"] == "Test A.S."
+        assert sonuclar[0]["durum"] == "HATA"
+
+    def test_kontrol_sonucu_getir_filtreleme(self):
+        from veri_tabani import kontrol_sonuc_kaydet, kontrol_sonuclari_getir
+        kontrol_sonuc_kaydet(dosya_adi="a.xlsx", firma_adi="Firma A", durum="OK")
+        kontrol_sonuc_kaydet(dosya_adi="b.xlsx", firma_adi="Firma B", durum="HATA")
+        kontrol_sonuc_kaydet(dosya_adi="c.xlsx", firma_adi="Firma A", durum="HATA")
+
+        tum = kontrol_sonuclari_getir()
+        assert len(tum) == 3
+
+        firma_a = kontrol_sonuclari_getir(firma="Firma A")
+        assert len(firma_a) == 2
+        assert all(s["firma_adi"] == "Firma A" for s in firma_a)
+
+        hatalar = kontrol_sonuclari_getir(durum="HATA")
+        assert len(hatalar) == 2
+        assert all(s["durum"] == "HATA" for s in hatalar)
+
+    def test_istatistik_getir(self):
+        from veri_tabani import kontrol_sonuc_kaydet, istatistik_getir
+        kontrol_sonuc_kaydet(dosya_adi="a.xlsx", durum="OK")
+        kontrol_sonuc_kaydet(dosya_adi="b.xlsx", durum="HATA", hata_sayisi=3)
+        kontrol_sonuc_kaydet(dosya_adi="c.xlsx", durum="UYARI", uyari_sayisi=2)
+
+        ist = istatistik_getir()
+        assert ist["toplam"] == 3
+        assert ist["ok"] == 1
+        assert ist["hata"] == 1
+        assert ist["uyari"] == 1
+
+    def test_hata_firmalari(self):
+        from veri_tabani import kontrol_sonuc_kaydet, istatistik_getir
+        kontrol_sonuc_kaydet(dosya_adi="a.xlsx", firma_adi="Firma X", durum="HATA")
+        kontrol_sonuc_kaydet(dosya_adi="b.xlsx", firma_adi="Firma X", durum="HATA")
+        kontrol_sonuc_kaydet(dosya_adi="c.xlsx", firma_adi="Firma Y", durum="HATA")
+
+        ist = istatistik_getir()
+        hata_firmalar = ist["hata_firmalari"]
+        assert len(hata_firmalar) >= 2
+        firma_x = [f for f in hata_firmalar if f["firma_adi"] == "Firma X"]
+        assert len(firma_x) == 1
+        assert firma_x[0]["n"] == 2
+
+    def test_ayar_kaydet_getir(self):
+        from veri_tabani import ayar_kaydet, ayar_getir
+        ayar_kaydet("dil", "en")
+        assert ayar_getir("dil") == "en"
+        assert ayar_getir("yok", "varsayilan") == "varsayilan"
+
+    def test_veri_tabani_temizle(self):
+        from veri_tabani import kontrol_sonuc_kaydet, veri_tabani_temizle, istatistik_getir
+        kontrol_sonuc_kaydet(dosya_adi="a.xlsx", durum="HATA")
+        ist = istatistik_getir()
+        assert ist["toplam"] == 1
+        veri_tabani_temizle()
+        ist = istatistik_getir()
+        assert ist["toplam"] == 0
+
+    def test_kural_istatistik_guncelle(self):
+        from veri_tabani import kural_istatistik_guncelle, istatistik_getir
+        kural_istatistik_guncelle("K1", "HATA")
+        kural_istatistik_guncelle("K1", "HATA")
+        kural_istatistik_guncelle("K2", "UYARI")
+        ist = istatistik_getir()
+        assert ist["kurallar"]["K1"]["hata"] == 2
+        assert ist["kurallar"]["K1"]["toplam"] == 2
+        assert ist["kurallar"]["K2"]["uyari"] == 1
+        assert ist["kurallar"]["K2"]["toplam"] == 1
+
+
+# --- Error Suggestions Tests ---
+class TestHataOnerileri:
+    def test_k1_onerisi(self):
+        from hata_onerileri import hata_onusu_ara
+        oner = hata_onusu_ara("K1")
+        assert len(oner) > 0
+        assert "100" in oner
+
+    def test_k10_onerisi(self):
+        from hata_onerileri import hata_onusu_ara
+        oner = hata_onusu_ara("K10")
+        assert len(oner) > 0
+        assert "600" in oner
+
+    def test_k12_onerisi(self):
+        from hata_onerileri import hata_onusu_ara
+        oner = hata_onusu_ara("K12")
+        assert len(oner) > 0
+
+    def test_bos_oneri(self):
+        from hata_onerileri import hata_onusu_ara
+        assert hata_onusu_ara("YL0") == ""
+
+    def test_ihlaller_ozeti(self):
+        from hata_onerileri import ihlaller_ozeti_ihlaller
+        ihlaller = [
+            {"kural_id": "K1", "hesap_kodu": "100", "hesap_adi": "Test", "seviye": "HATA", "mesaj": "test"},
+            {"kural_id": "K11", "hesap_kodu": "760", "hesap_adi": "Test2", "seviye": "UYARI", "mesaj": "test2"},
+        ]
+        sonuc = ihlaller_ozeti_ihlaller(ihlaller)
+        assert len(sonuc) == 2
+        assert sonuc[0]["oneri"] != ""
+        assert sonuc[0]["kural_id"] == "K1"
+        assert sonuc[1]["kural_id"] == "K11"
+
+
+# --- Update Checker Tests ---
+class TestGuncellemeKontrolu:
+    def test_simdiki_surum(self):
+        from guncelleme_kontrolu import simdiki_surum
+        surum = simdiki_surum()
+        assert isinstance(surum, str)
+        assert len(surum) > 0
+
+    def test_guncelleme_kontrol_et(self):
+        from guncelleme_kontrolu import guncellememi_kontrol_et
+        sonuc = guncellememi_kontrol_et()
+        assert "guncellememevcut" in sonuc
+        assert "simdi" in sonuc
+
+
+# --- Integration Tests ---
+class TestEntegrasyon:
+    def test_mizan_kontrol_sonucu_veritabanina_kaydedilir(self):
+        tmpdir = tempfile.mkdtemp()
+        orig = os.getcwd()
+        os.chdir(tmpdir)
+        try:
+            from mizan_kontrol import mizan_kontrol, KontrolSonucu, KuralIhlali
+            from veri_tabani import kontrol_sonuc_kaydet, kontrol_sonuclari_getir
+
+            sonuc = KontrolSonucu(
+                dosya_adi="test_mizan.xlsx", firma_adi="Entegre A.S.",
+                hata_sayisi=1, uyari_sayisi=0,
+                ihlaller=[KuralIhlali("K1", "100", "Hesap100", "Test hata", "HATA")],
+            )
+            kontrol_sonuc_kaydet(
+                dosya_adi=sonuc.dosya_adi,
+                firma_adi=sonuc.firma_adi,
+                durum=sonuc.durum,
+                hata_sayisi=sonuc.hata_sayisi,
+                uyari_sayisi=sonuc.uyari_sayisi,
+                ihlaller=[{"kural_id": i.kural_id, "hesap_kodu": i.hesap_kodu,
+                           "hesap_adi": i.hesap_adi, "seviye": i.seviye, "mesaj": i.mesaj} for i in sonuc.ihlaller],
+            )
+            sonuclar = kontrol_sonuclari_getir()
+            assert len(sonuclar) == 1
+            assert sonuclar[0]["firma_adi"] == "Entegre A.S."
+            assert sonuclar[0]["durum"] == "HATA"
+        finally:
+            os.chdir(orig)
+            shutil.rmtree(tmpdir)

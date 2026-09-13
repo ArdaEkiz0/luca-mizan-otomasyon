@@ -4,6 +4,40 @@
 
 "use strict";
 
+/* ---------- Çeviri ---------- */
+const DIL = {
+  tr: {
+    altBaslik: "Raporlarınız bir tık uzağınızda",
+    kontrolBaslik: "Mizan Kontrolu",
+    dashboardBaslik: "Dashboard",
+    grafikBaslik: "HATA Durumu — Son 7 Gün",
+    dashTabloBaslik: "Son Kontroller",
+    bosListe: "Veri yok.",
+    dashboardAc: "📊 Dashboard",
+    dosyaKontrolEt: "Raporlari Kontrol Et",
+    hataBildirim: " dosyada HATA var! Kontrol listesini inceleyin.",
+    uyariBildirim: " dosyada UYARI var.",
+    okBildirim: "Tum dosyalar OK!",
+    kontrolBildirim: " dosyada HATA\n\nLütfen HATA içeren dosyaları kontrol edin.",
+  },
+  en: {
+    altBaslik: "Your reports are just a click away",
+    kontrolBaslik: "Balance Control",
+    dashboardBaslik: "Dashboard",
+    grafikBaslik: "ERROR Status — Last 7 Days",
+    dashTabloBaslik: "Last Controls",
+    bosListe: "No data.",
+    dashboardAc: "📊 Dashboard",
+    dosyaKontrolEt: "Check Reports",
+    hataBildirim: " files have ERROR! Check the control list.",
+    uyariBildirim: " files have WARNING.",
+    okBildirim: "All files OK!",
+    kontrolBildirim: " files have ERROR\n\nPlease check the files with errors.",
+  },
+};
+
+let aktifDil = "tr";
+
 /* ---------- Yardımcılar ---------- */
 function sec(id) { return document.getElementById(id); }
 
@@ -59,6 +93,87 @@ function durumGuncelle(metin, seviye) {
   const rozet = sec("durumRozeti");
   rozet.classList.remove("durum-seviye-calisiyor", "durum-seviye-hata", "durum-seviye-basarili");
   rozet.classList.add("durum-seviye-" + seviye);
+}
+
+function dilDegistir(dil) {
+  aktifDil = dil;
+  document.querySelectorAll(".dil-btn").forEach(b => b.classList.toggle("aktif", b.dataset.dil === dil));
+  const dilVeri = DIL[dil] || DIL.tr;
+  sec("altBaslik").textContent = dilVeri.altBaslik;
+  sec("kontrolBaslik").textContent = dilVeri.kontrolBaslik;
+  ayar_kaydet("dil", dil);
+}
+
+function dashboardAc() {
+  sec("blokDashboard").style.display = "block";
+  dashboardYukle();
+}
+
+function dashboardGizle() {
+  sec("blokDashboard").style.display = "none";
+}
+
+async function dashboardYukle() {
+  try {
+    const r = await apiGetir("/api/kontrol/dashboard");
+    if (!r.ok) return;
+    const ist = r.istatistik || {};
+    sec("dashToplam").textContent = ist.toplam || 0;
+    sec("dashOk").textContent = ist.ok || 0;
+    sec("dashHata").textContent = ist.hata || 0;
+    sec("dashUyari").textContent = ist.uyari || 0;
+    const barlar = sec("grafikBarlar");
+    barlar.innerHTML = "";
+    if (ist.hata_firmalari && ist.hata_firmalari.length > 0) {
+      const enCok = ist.hata_firmalari.slice(0, 7);
+      const max = Math.max(...enCok.map(f => f.n || 0), 1);
+      enCok.forEach(f => {
+        const bar = document.createElement("div");
+        bar.className = "grafik-bar";
+        bar.style.height = Math.max(4, (f.n / max) * 72) + "px";
+        bar.title = f.firma_adi + ": " + (f.n || 0);
+        barlar.appendChild(bar);
+      });
+    } else {
+      barlar.innerHTML = '<div class="bos-liste">Veri yok.</div>';
+    }
+    const sarici = sec("dashTabloSarici");
+    sarici.innerHTML = "";
+    const sonuclar = r.sonuclar || [];
+    if (sonuclar.length === 0) {
+      sarici.innerHTML = '<div class="bos-liste">' + (DIL[aktifDil]?.bosListe || "Veri yok.") + '</div>';
+      return;
+    }
+    sonuclar.forEach(s => {
+      const satir = document.createElement("div");
+      satir.className = "dash-satir";
+      const durumKucuk = s.durum.toLowerCase();
+      satir.innerHTML =
+        '<span class="dash-son-durum ' + durumKucuk + '">' + (s.durum || "") + '</span>' +
+        '<span class="dash-son-firma">' + (s.firma_adi || s.dosya_adi || "") + '</span>' +
+        '<span class="dash-son-tarih">' + (s.kontrol_tarihi || "").slice(5, 16) + '</span>';
+      sarici.appendChild(satir);
+    });
+  } catch (e) {
+    toastGoster("hata", "Yüklenemedi.");
+  }
+}
+
+function kontrolFiltreleAra() {
+  const arama = (sec("kontrolArama")?.value || "").toLocaleLowerCase("tr");
+  if (!arama) {
+    kontrolFiltrele(kontrolFiltreli || "tum");
+    return;
+  }
+  const liste = sec("kontrolListe");
+  liste.innerHTML = "";
+  filtrelenen = (kontrolFiltreli === "tum" ? kontrolSonuclari : kontrolSonuclari.filter(s => s.durum === kontrolFiltreli))
+    .filter(s => (s.firma || "").toLocaleLowerCase("tr").includes(arama) || (s.dosya || "").toLocaleLowerCase("tr").includes(arama));
+  if (filtrelenen.length === 0) {
+    liste.innerHTML = '<div class="bos-liste">Eslesen kayit yok.</div>';
+    return;
+  }
+  filtrelenen.forEach(s => kayitOlustur(s));
 }
 
 /* ---------- Tarih otomatik format ---------- */
@@ -373,6 +488,35 @@ async function durumPoll() {
 secenekDoldur();
 durumPoll();
 
+dilYukle();
+guncellemeKontrolEt();
+
+async function guncellemeKontrolEt() {
+  try {
+    const r = await apiGonder("/api/guncelleme");
+    if (r && r.ok && !r.guncelleme.guncellememevcut) {
+      toastGoster("uyari", "Yeni surum var: " + (r.guncelleme.yeni || ""));
+    }
+  } catch (e) {
+    // Guncelleme kontrolu opsiyonel
+  }
+}
+
+async function dilYukle() {
+  try {
+    const r = await apiGonder("/api/ayar_dil");
+    if (r && r.ok) {
+      aktifDil = r.dil || "tr";
+    }
+  } catch (e) {
+    // Dil yukleme opsiyonel
+  }
+  document.querySelectorAll(".dil-btn").forEach(b => b.classList.toggle("aktif", b.dataset.dil === aktifDil));
+  const dilVeri = DIL[aktifDil] || DIL.tr;
+  sec("altBaslik").textContent = dilVeri.altBaslik;
+  sec("kontrolBaslik").textContent = dilVeri.kontrolBaslik;
+}
+
 let kontrolSonuclari = [];
 let kontrolFiltreli = "tum";
 
@@ -417,7 +561,6 @@ function mizanKontrol() {
     const uyariSayisi = ist.uyari || 0;
     if (hataSayisi > 0) {
       const hataListe = sonuclar.filter(s => s.durum === "HATA").map(s => s.firma || s.dosya);
-      const mesaj = hataSayisi + " dosyada HATA bulundu:\n\n" + hataListe.join("\n");
       toastGoster("hata", hataSayisi + " dosyada HATA var! Kontrol listesini inceleyin.");
       setTimeout(() => {
         alert("⚠️ MİZAN KONTROL — " + hataSayisi + " HATA\n\n" + hataListe.join("\n") + "\n\nLütfen HATA içeren dosyaları kontrol edin.");
@@ -427,6 +570,9 @@ function mizanKontrol() {
     } else {
       toastGoster("basarili", "Tum dosyalar OK!");
     }
+
+    dashboardYukle();
+    sec("blokDashboard").style.display = "block";
 
     // Loglara ekle
     sonuclar.forEach(s => {
@@ -439,6 +585,62 @@ function mizanKontrol() {
   });
 }
 
+function kayitOlustur(s) {
+  const liste = sec("kontrolListe");
+  const kayit = document.createElement("div");
+  kayit.className = "kontrol-kayit";
+  const rozet = s.durum === "OK"
+    ? '<span class="durum-rozet ok">OK</span>'
+    : s.durum === "UYARI"
+      ? '<span class="durum-rozet uyari">UYARI</span>'
+      : '<span class="durum-rozet hata">HATA</span>';
+  kayit.innerHTML =
+    rozet +
+    '<span class="kontrol-ad">' + muhafaza(s.firma || s.dosya) + '</span>' +
+    '<span class="kontrol-ozet">' + muhafaza(s.ozet) + '</span>';
+
+  const ayrinti = s.ihlaller || [];
+  if (s.durum === "OK") {
+    kayit.classList.add("ok");
+  } else if (s.durum === "UYARI") {
+    kayit.classList.add("uyari");
+  } else {
+    kayit.classList.add("hata");
+  }
+
+  kayit.addEventListener("click", () => {
+    if (ayrinti.length === 0) return;
+    const mevcut = kayit.querySelector(".kontrol-detay");
+    if (mevcut) { mevcut.remove(); return; }
+    const detay = document.createElement("div");
+    detay.className = "kontrol-detay";
+    ayrinti.forEach(i => {
+      const sat = document.createElement("div");
+      sat.className = "kontrol-detay-" + (i.seviye === "HATA" ? "hata" : "uyari");
+      sat.textContent = "[" + (i.kural || i.kural_id) + "] Hesap " + (i.hesap || i.hesap_kodu) + " " + (i.ad || i.hesap_adi) + " -> " + (i.mesaj || "");
+      detay.appendChild(sat);
+    });
+    kayit.appendChild(detay);
+  });
+
+  liste.appendChild(kayit);
+}
+
+function kontrolFiltreleAra() {
+  const arama = (sec("kontrolArama")?.value || "").toLocaleLowerCase("tr");
+  const liste = sec("kontrolListe");
+  liste.innerHTML = "";
+  let kaynak = kontrolFiltreli === "tum" ? kontrolSonuclari : kontrolSonuclari.filter(s => s.durum === kontrolFiltreli);
+  if (arama) {
+    kaynak = kaynak.filter(s => (s.firma || "").toLocaleLowerCase("tr").includes(arama) || (s.dosya || "").toLocaleLowerCase("tr").includes(arama));
+  }
+  if (kaynak.length === 0) {
+    liste.innerHTML = '<div class="bos-liste">Eslesen kayit yok.</div>';
+    return;
+  }
+  kaynak.forEach(s => kayitOlustur(s));
+}
+
 function kontrolFiltrele(filtre) {
   kontrolFiltreli = filtre;
   const liste = sec("kontrolListe");
@@ -448,54 +650,18 @@ function kontrolFiltrele(filtre) {
     btn.classList.toggle("aktif", btn.dataset.filtre === filtre);
   });
 
-  const filtrelenen = filtre === "tum"
-    ? kontrolSonuclari
-    : kontrolSonuclari.filter(s => s.durum === filtre);
+  const arama = (sec("kontrolArama")?.value || "").toLocaleLowerCase("tr");
+  let filtrelenen = filtre === "tum" ? kontrolSonuclari : kontrolSonuclari.filter(s => s.durum === filtre);
+  if (arama) {
+    filtrelenen = filtrelenen.filter(s => (s.firma || "").toLocaleLowerCase("tr").includes(arama) || (s.dosya || "").toLocaleLowerCase("tr").includes(arama));
+  }
 
   if (filtrelenen.length === 0) {
     liste.innerHTML = '<div class="bos-liste">Bu filtreyle eslesen kayit yok.</div>';
     return;
   }
 
-  filtrelenen.forEach(s => {
-    const kayit = document.createElement("div");
-    kayit.className = "kontrol-kayit";
-    const rozet = s.durum === "OK"
-      ? '<span class="durum-rozet ok">OK</span>'
-      : s.durum === "UYARI"
-        ? '<span class="durum-rozet uyari">UYARI</span>'
-        : '<span class="durum-rozet hata">HATA</span>';
-    kayit.innerHTML =
-      rozet +
-      '<span class="kontrol-ad">' + muhafaza(s.firma || s.dosya) + '</span>' +
-      '<span class="kontrol-ozet">' + muhafaza(s.ozet) + '</span>';
-
-    const ayrinti = s.ihlaller || [];
-    if (s.durum === "OK") {
-      kayit.classList.add("ok");
-    } else if (s.durum === "UYARI") {
-      kayit.classList.add("uyari");
-    } else {
-      kayit.classList.add("hata");
-    }
-
-    kayit.addEventListener("click", () => {
-      if (ayrinti.length === 0) return;
-      const mevcut = kayit.querySelector(".kontrol-detay");
-      if (mevcut) { mevcut.remove(); return; }
-      const detay = document.createElement("div");
-      detay.className = "kontrol-detay";
-      ayrinti.forEach(i => {
-        const sat = document.createElement("div");
-        sat.className = "kontrol-detay-" + (i.seviye === "HATA" ? "hata" : "uyari");
-        sat.textContent = "[" + i.kural + "] Hesap " + i.hesap + " " + i.ad + " -> " + i.mesaj;
-        detay.appendChild(sat);
-      });
-      kayit.appendChild(detay);
-    });
-
-    liste.appendChild(kayit);
-  });
+  filtrelenen.forEach(s => kayitOlustur(s));
 }
 
 /* ---------- Kontrol Export ---------- */
