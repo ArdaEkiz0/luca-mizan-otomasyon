@@ -23,13 +23,11 @@ LUCA Mali Müşavir Paketi'nde müşteri mizan raporlarını otomatik oluşturan
 
 ## Hızlı Başlangıç (Windows)
 
-Python'un kurulu olduğunu varsayar. **`Mizan_Raporu_Baslat.bat`** dosyasına
-çift tıklayın — sanal ortam, bağımlılıklar ve Chromium otomatik kurulur,
-ardından tarayıcıda arayüz açılır.
+Python kurulu olmadan bile **`Mizan_Raporu_Baslat.bat`** dosyasına
+çift tıklayın — uygulama Python'u, sanal ortamı, bağımlılıkları
+ve Chromium'u otomatik kurar, ardından tarayıcıda arayüz açılır.
 
-> Python kurulu değilse: [python.org](https://www.python.org/downloads/)'dan
-> kurun, "Add Python to PATH" seçeneğini işaretleyin, sonra `.bat`'a tekrar
-> çift tıklayın.
+> Zaten Python kuruluysa otomatik kurulum atlanır.
 
 İlk açılışta:
 
