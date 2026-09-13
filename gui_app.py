@@ -1031,12 +1031,30 @@ class LucaGUI(ctk.CTk):
         ok = sum(1 for s in self.kontrol_sonuclari if s["durum"] == "OK")
         hata = sum(1 for s in self.kontrol_sonuclari if s["durum"] == "HATA")
         uyari = sum(1 for s in self.kontrol_sonuclari if s["durum"] == "UYARI")
-        self.ist_toplam.configure(text=f"Toplam: {toplam}")
-        self.ist_ok.configure(text=f"OK: {ok}")
-        self.ist_hata.configure(text=f"HATA: {hata}")
-        self.ist_uyari.configure(text=f"UYARI: {uyari}")
+        self.ist_toplam.configure(text=f"TOPLAM: {toplam}")
+        self.ist_ok.configure(text=f"✅ OK: {ok}")
+        self.ist_hata.configure(text=f"❌ HATA: {hata}")
+        self.ist_uyari.configure(text=f"⚠️ UYARI: {uyari}")
         self._mesgul_bitir(f"Kontrol tamamlandi ({toplam} dosya)")
         self._kontrol_filtrele(self.kontrol_filtreli)
+
+        # Belirgi bildirim
+        if hata > 0:
+            hatali_dosyalar = [s["dosya"] for s in self.kontrol_sonuclari if s["durum"] == "HATA"]
+            mesaj = f"❌ {hata} DOSYA HATALI!\n\n" + "\n".join(f"  • {d}" for d in hatali_dosyalar)
+            messagebox.showerror("HATA Tespit Edildi", mesaj)
+            # Istatistik etiketini kirmizi yap
+            self.ist_hata.configure(text=f"❌ HATA: {hata}", text_color="#ef4444")
+            self.ist_toplam.configure(text=f"🚨 TOPLAM: {toplam}", text_color="#ef4444")
+        elif uyari > 0:
+            messagebox.showwarning("UYARI", f"⚠️ {uyari} dosyada uyarı var.")
+            self.ist_hata.configure(text=f"⚠️ HATA: {hata}", text_color="#facc15")
+            self.ist_uyari.configure(text=f"⚠️ UYARI: {uyari}", text_color="#facc15")
+        else:
+            messagebox.showinfo("Kontrol Tamamlandı", f"✅ Tüm {toplam} dosya OK.")
+            self.ist_hata.configure(text=f"❌ HATA: 0", text_color="#ef4444")
+            self.ist_uyari.configure(text=f"⚠️ UYARI: 0", text_color="#facc15")
+            self.ist_toplam.configure(text=f"TOPLAM: {toplam}", text_color="#ffffff")
 
     def _kontrol_sonuc_ekle(self, sonuc: dict) -> None:
         """Tek bir kontrol sonucunu ekler."""
