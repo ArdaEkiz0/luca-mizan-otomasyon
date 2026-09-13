@@ -40,6 +40,13 @@
     </div>
   </header>
 
+  <!-- Güncelleme Bar (üstte) -->
+  <div id="guncelleBar" style="background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); border-radius:10px; padding:8px 16px; margin:8px 0; display:none; text-align:center; font-size:13px;">
+    🔔 Yeni sürüm mevcut!
+    <button class="btn btn-yesil btn-kucuk" onclick="updateApp()" style="margin-left:8px;">🔄 Güncelle</button>
+    <button class="btn btn-gri btn-kucuk" onclick="this.parentElement.style.display='none'" style="margin-left:4px;">✕</button>
+  </div>
+
   <!-- Giriş bilgileri -->
   <section class="kart blok blok-giris">
     <div class="kart-baslik">
@@ -186,11 +193,6 @@
   <!-- Dashboard Ac butonu -->
   <div style="text-align:center; padding:10px 0;">
     <button class="btn btn-mor btn-kucuk" onclick="dashboardAc()">📊 Dashboard</button>
-  </div>
-
-  <!-- Güncelleme Butonu (Her zaman görünür) -->
-  <div id="guncelleBar" style="text-align:center; padding:5px 0; display:none;">
-    <button class="btn btn-yesil btn-kucuk" onclick="updateApp()">🔄 Güncelle</button>
   </div>
 
   <!-- Indirilen raporlar -->

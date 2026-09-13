@@ -17,3 +17,7 @@ __pycache__/
 
 # SQLite veritabani
 *.db
+
+# Geçici dosyalar
+Kesfet_Baslat.bat
+luca_kesfet.py
