@@ -643,6 +643,7 @@ class ApiHandler(BaseHTTPRequestHandler):
         """İndirilen tüm mizanları kontrol eder, istatistiklerle sonucu JSON verir."""
         try:
             from mizan_kontrol import mizan_kontrol, kontrol_raporu_yaz, MizanKontrolMotoru, kural_istatistikleri
+            from hata_onerileri import hata_onusu_ara
         except Exception as e:
             self._json({"ok": False, "hata": f"mizan_kontrol yüklenemedi: {e}"})
             return
@@ -692,7 +693,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                     "ihlaller": [
                         {"kural": i.kural_id, "hesap": i.hesap_kodu,
                          "ad": i.hesap_adi, "seviye": i.seviye,
-                         "mesaj": i.mesaj}
+                         "mesaj": i.mesaj, "oneri": hata_onusu_ara(i.kural_id)}
                         for i in s.ihlaller
                     ],
                 })

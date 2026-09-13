@@ -914,6 +914,13 @@ function kayitOlustur(s) {
       sat.className = "kontrol-detay-" + (i.seviye === "HATA" ? "hata" : "uyari");
       sat.textContent = "[" + (i.kural || i.kural_id) + "] Hesap " + (i.hesap || i.hesap_kodu) + " " + (i.ad || i.hesap_adi) + " -> " + (i.mesaj || "");
       detay.appendChild(sat);
+      if (i.oneri) {
+        const onerSat = document.createElement("div");
+        onerSat.className = "kontrol-detay-oneri";
+        onerSat.style.cssText = "color: var(--mor); font-size: 11px; padding: 2px 8px; font-style: italic;";
+        onerSat.textContent = "💡 Öneri: " + i.oneri;
+        detay.appendChild(onerSat);
+      }
     });
     kayit.appendChild(detay);
   });

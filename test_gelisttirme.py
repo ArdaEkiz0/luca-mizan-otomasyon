@@ -284,3 +284,32 @@ class TestGuncellemeIslem:
         from guncelleme_kontrolu import simdiki_surum
         surum = simdiki_surum()
         assert surum != ""
+
+
+class TestHataOnerileriAPI:
+    def test_web_ui_hata_onerileri_import(self):
+        from web_ui import ApiHandler
+        assert hasattr(ApiHandler, "_kontrol_raporlari")
+
+    def test_hata_onusu_ara_kurallar(self):
+        from hata_onerileri import hata_onusu_ara
+        for kural in ["K1", "K2", "K5", "K10", "K12", "DOSYA", "OKU", "VERI"]:
+            oner = hata_onusu_ara(kural)
+            assert isinstance(oner, str)
+            assert len(oner) > 0, f"{kural} icin oner bos olmali"
+
+    def test_hata_onusu_ara_bos_kural(self):
+        from hata_onerileri import hata_onusu_ara
+        assert hata_onusu_ara("YL0") == ""
+
+    def test_ihlaller_ozeti_oneriler_eklenir(self):
+        from hata_onerileri import ihlaller_ozeti_ihlaller
+        ihlaller = [
+            {"kural_id": "K1", "hesap_kodu": "100", "hesap_adi": "Test", "seviye": "HATA", "mesaj": "test"},
+            {"kural_id": "K11", "hesap_kodu": "760", "hesap_adi": "Test2", "seviye": "UYARI", "mesaj": "test2"},
+            {"kural_id": "YL0", "hesap_kodu": "999", "hesap_adi": "Test3", "seviye": "HATA", "mesaj": "test3"},
+        ]
+        sonuc = ihlaller_ozeti_ihlaller(ihlaller)
+        assert sonuc[0]["oneri"] != ""
+        assert sonuc[1]["oneri"] != ""
+        assert sonuc[2]["oneri"] == ""
