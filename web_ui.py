@@ -256,6 +256,9 @@ class ApiHandler(BaseHTTPRequestHandler):
         if yol == "/api/ayarlar":
             self._json(_env_yukle())
             return
+        if yol == "/api/kontrol/dashboard":
+            self._kontrol_dashboard()
+            return
 
         # Statik dosyalar
         if yol in ("/", "/index.html"):
