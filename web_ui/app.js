@@ -706,6 +706,48 @@ async function durumPoll() {
 
 let _onceCalisiyor = false;
 
+async function kontrolGecmisGizle() {
+  sec("kontrolGecmisBolum").style.display = "none";
+}
+
+function kontrolGecmisAc() {
+  sec("kontrolGecmisBolum").style.display = "block";
+  sec("kontrolGecmisArama").focus();
+}
+
+async function kontrolGecmisAra() {
+  const firma = (sec("kontrolGecmisArama")?.value || "").trim();
+  if (!firma) {
+    toastGoster("hata", "Firma adı yazın.");
+    return;
+  }
+  const liste = sec("kontrolGecmisListe");
+  liste.innerHTML = '<div class="bos-liste">Aranıyor...</div>';
+  liste.style.display = "block";
+  try {
+    const r = await apiGonder("/api/kontrol/arama", { firma });
+    if (!r.ok) {
+      liste.innerHTML = '<div class="bos-liste">Hata: ' + muhafaza(r.hata || "bilinmiyor") + '</div>';
+      return;
+    }
+    const sonuclar = r.sonuclar || [];
+    if (sonuclar.length === 0) {
+      liste.innerHTML = '<div class="bos-liste">Bu firma için geçmiş kayıt bulunamadı.</div>';
+      return;
+    }
+    let html = '<div style="padding:8px 12px;font-weight:600;">Geçmiş Kontrol Raporları (' + sonuclar.length + ')</div>';
+    sonuclar.forEach(s => {
+      html += '<div class="kontrol-kayit ok" style="cursor:default;">' +
+        '<span class="kontrol-ad">' + muhafaza(s.firma || s.dosya) + '</span>' +
+        '<span class="kontrol-ozet">' + muhafaza(s.ozet || '') + ' — ' + muhafaza(s.kontrol_tarihi || '') + '</span>' +
+      '</div>';
+    });
+    liste.innerHTML = html;
+  } catch (e) {
+    liste.innerHTML = '<div class="bos-liste">Bağlantı hatası.</div>';
+  }
+}
+
 /* ---------- Giriş ---------- */
 secenekDoldur();
 durumPoll();

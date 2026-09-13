@@ -169,6 +169,7 @@
       <div class="sag-butonlar">
         <input class="arama" id="kontrolArama" type="text" placeholder="Firma ara..." oninput="kontrolFiltreleAra()">
         <button class="btn btn-mor btn-kucuk" onclick="mizanKontrol()" id="kontrolBtn">Raporlari Kontrol Et</button>
+        <button class="btn btn-gri btn-kucuk" onclick="kontrolGecmisAc()">📜 Geçmiş</button>
       </div>
     </div>
     <div class="kontrol-istatistik" id="kontrolIstatistik" style="display:none;">
@@ -192,6 +193,14 @@
     </div>
     <div class="kontrol-liste" id="kontrolListe">
       <div class="bos-liste">Mizan raporlari indirildikten sonra "Raporlari Kontrol Et" butonuna basin.</div>
+    </div>
+    <div style="margin-top:10px;border-top:1px solid rgba(139,92,246,0.15);padding-top:10px;display:none;" id="kontrolGecmisBolum">
+      <div class="sag-butonlar" style="margin-bottom:8px;">
+        <input class="arama" id="kontrolGecmisArama" type="text" placeholder="Geçmiş firması ara...">
+        <button class="btn btn-mor btn-kucuk" onclick="kontrolGecmisAra()">Geçmiş Ara</button>
+        <button class="btn btn-gri btn-kucuk" onclick="kontrolGecmisGizle()">X</button>
+      </div>
+      <div class="kontrol-liste" id="kontrolGecmisListe" style="display:none;"></div>
     </div>
   </section>
 
