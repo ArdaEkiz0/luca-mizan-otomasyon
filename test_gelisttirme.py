@@ -356,3 +356,27 @@ class TestKontrolAPI:
         assert handler.sonuc[0]["ok"] is True
         sonuclar = handler.sonuc[0]["sonuclar"]
         assert isinstance(sonuclar, list)
+
+    def test_kontrol_gecmis_detay_id_sifir(self):
+        class MockHandler:
+            def __init__(self):
+                self.sonuc = None
+            def _json(self, veri, durum=200):
+                self.sonuc = (veri, durum)
+
+        handler = MockHandler()
+        from web_ui import ApiHandler
+        ApiHandler._kontrol_gecmis_detay(handler, {"id": 0})
+        assert handler.sonuc[0]["ok"] is False
+
+    def test_kontrol_gecmis_detay_bulunamadi(self):
+        class MockHandler:
+            def __init__(self):
+                self.sonuc = None
+            def _json(self, veri, durum=200):
+                self.sonuc = (veri, durum)
+
+        handler = MockHandler()
+        from web_ui import ApiHandler
+        ApiHandler._kontrol_gecmis_detay(handler, {"id": 999999})
+        assert handler.sonuc[0]["ok"] is False

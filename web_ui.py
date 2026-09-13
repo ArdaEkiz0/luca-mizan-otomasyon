@@ -348,6 +348,8 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._kontrol_dashboard()
         elif yol == "/api/kontrol/arama":
             self._kontrol_arama(veri)
+        elif yol == "/api/kontrol/gecmis-detay":
+            self._kontrol_gecmis_detay(veri)
         elif yol == "/api/ayar_dil":
             self._ayar_dil(veri)
         else:
@@ -1014,6 +1016,26 @@ class ApiHandler(BaseHTTPRequestHandler):
                 return
             sonuclar = kontrol_sonuclari_getir(firma=firma or None, durum=durum or None, limit=50 if tumu else None)
             self._json({"ok": True, "sonuclar": sonuclar})
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+
+    def _kontrol_gecmis_detay(self, veri: dict) -> None:
+        try:
+            from veri_tabani import ihlaller_getir, kontrol_sonuclari_getir, baglanti_olustur
+            kid = int(veri.get("id", 0))
+            if kid <= 0:
+                self._json({"ok": False, "hata": "Gecerli id zorunlu"})
+                return
+            conn = baglanti_olustur()
+            c = conn.cursor()
+            row = c.execute("SELECT * FROM kontrol_sonuclari WHERE id = ?", (kid,)).fetchone()
+            conn.close()
+            if not row:
+                self._json({"ok": False, "hata": "Kontrol bulunamadi"})
+                return
+            detay = dict(row)
+            detay["ihlaller"] = ihlaller_getir(kid)
+            self._json({"ok": True, "detay": detay})
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})
 

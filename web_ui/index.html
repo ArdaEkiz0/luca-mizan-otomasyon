@@ -356,6 +356,20 @@
 
 <div class="toast-sarici" id="toastSarici"></div>
 
+<div class="modal-overlay" id="kontrolDetayModal" style="display:none;" onclick="kontrolDetayModalKapat(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-baseline">
+      <h2 id="kontrolDetayBaslik">Kontrol Detayı</h2>
+      <button onclick="kontrolDetayModalKapat()">&times;</button>
+    </div>
+    <div class="modal-grid" id="kontrolDetayGrid"></div>
+    <div class="modal-ihlaller">
+      <h3>İhlaller</h3>
+      <div id="kontrolDetayIhlaller"></div>
+    </div>
+  </div>
+</div>
+
 <script src="/app.js"></script>
 </body>
 </html>

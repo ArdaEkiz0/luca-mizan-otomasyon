@@ -75,7 +75,7 @@ python web_ui.py       # yerel sunucu + tarayıcıda arayüz
 | `logo_uret.py` | Terazi logoyu `.ico`/`.png` olarak üretir |
 | `kisayol_olustur.py` | İlk açılışta masaüstüne ikonlu kısayol oluşturur |
 | `test_unit.py` | 92 birim testi |
-| `test_gelisttirme.py` | 31 geliştirme testi |
+| `test_gelisttirme.py` | 33 geliştirme testi |
 | `hata_onerileri.py` | Kural bazlı hata önerileri (K1-K12) |
 
 ## Sürüm Geçmişi

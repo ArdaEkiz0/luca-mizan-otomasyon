@@ -807,12 +807,72 @@ function kontrolGecmisListeYap(sonuclar, toplam) {
   let html = '<div style="padding:8px 12px;font-weight:600;">Geçmiş Kontrol Raporları — ' + (kontrolGecmisFiltreli === "tum" ? "Tümü" : kontrolGecmisFiltreli) + ' (' + toplam + ')</div>';
   sonuclar.forEach(s => {
     const durumRenk = s.durum === "OK" ? "var(--yesil)" : s.durum === "UYARI" ? "#facc15" : "var(--kirmizi)";
-    html += '<div class="kontrol-kayit ok" style="cursor:default;border-left:4px solid ' + durumRenk + ';">' +
+    html += '<div class="kontrol-kayit ok" style="cursor:pointer;border-left:4px solid ' + durumRenk + ';" onclick="kontrolDetay(' + (s.id || 0) + ')">' +
       '<span class="kontrol-ad">' + muhafaza(s.firma || s.dosya) + '</span>' +
       '<span class="kontrol-ozet">' + (s.hata_sayisi || 0) + 'HATA ' + (s.uyari_sayisi || 0) + 'UYARI — ' + muhafaza(s.kontrol_tarihi || '') + '</span>' +
     '</div>';
   });
   liste.innerHTML = html;
+}
+
+function kontrolDetayModalKapat(e) {
+  if (e && e.target !== e.currentTarget) return;
+  const modal = sec("kontrolDetayModal");
+  if (modal) modal.style.display = "none";
+}
+
+async function kontrolDetay(id) {
+  const modal = sec("kontrolDetayModal");
+  if (!modal) return;
+  modal.style.display = "flex";
+  const grid = sec("kontrolDetayGrid");
+  const ihlallerDiv = sec("kontrolDetayIhlaller");
+  const baslik = sec("kontrolDetayBaslik");
+  if (grid) grid.innerHTML = '<div class="bos-liste">Yükleniyor...</div>';
+  if (ihlallerDiv) ihlallerDiv.innerHTML = '<div class="bos">Yükleniyor...</div>';
+  if (baslik) baslik.textContent = "Kontrol Detayı";
+  try {
+    const r = await apiGonder("/api/kontrol/gecmis-detay", { id: id });
+    if (!r.ok) {
+      if (grid) grid.innerHTML = '<div class="bos-liste">Hata: ' + muhafaza(r.hata || "bilinmiyor") + '</div>';
+      return;
+    }
+    const d = r.detay || {};
+    if (baslik) baslik.textContent = muhafaza(d.firma_adi || d.dosya_adi || "Kontrol Detayı");
+    if (grid) {
+      let gh = "";
+      gh += '<div class="mg-sol">Dosya</div><div class="mg-sag">' + muhafaza(d.dosya_adi || "") + '</div>';
+      gh += '<div class="mg-sol">Firma</div><div class="mg-sag">' + muhafaza(d.firma_adi || "") + '</div>';
+      gh += '<div class="mg-sol">Dönem</div><div class="mg-sag">' + muhafaza(d.donem || "") + '</div>';
+      gh += '<div class="mg-sol">Tarih</div><div class="mg-sag">' + muhafaza(d.kontrol_tarihi || "") + '</div>';
+      gh += '<div class="mg-sol">Satır</div><div class="mg-sag">' + (d.satir_sayisi || 0) + '</div>';
+      gh += '<div class="mg-sol">Durum</div><div class="mg-sag">' + (d.durum || "") + '</div>';
+      gh += '<div class="mg-sol">HATA</div><div class="mg-sag" style="color:var(--kirmizi);">' + (d.hata_sayisi || 0) + '</div>';
+      gh += '<div class="mg-sol">UYARI</div><div class="mg-sag" style="color:#facc15;">' + (d.uyari_sayisi || 0) + '</div>';
+      grid.innerHTML = gh;
+    }
+    if (ihlallerDiv) {
+      const ihl = d.ihlaller || [];
+      if (ihl.length === 0) {
+        ihlallerDiv.innerHTML = '<div class="bos">İhlal kaydı yok.</div>';
+        return;
+      }
+      let ih = "";
+      ihl.forEach(i => {
+        const sev = (i.seviye || "").toLowerCase();
+        const sevClass = sev === "hata" ? "hata" : sev === "uyari" ? "uyari" : "";
+        ih += '<div class="ihl-satir">' +
+          '<span class="ihl-kural">' + muhafaza(i.kural_id || "") + '</span>' +
+          '<span class="ihl-hesap">' + muhafaza(i.hesap_kodu || "") + '</span>' +
+          '<span class="ihl-mesaj">' + muhafaza(i.mesaj || i.deger || "") + '</span>' +
+          (sevClass ? '<span class="ihl-seviye ' + sevClass + '">' + (i.seviye || "").toUpperCase() + '</span>' : '') +
+        '</div>';
+      });
+      ihlallerDiv.innerHTML = ih;
+    }
+  } catch (e) {
+    if (grid) grid.innerHTML = '<div class="bos-liste">Bağlantı hatası.</div>';
+  }
 }
 
 /* ---------- Giriş ---------- */
