@@ -23,16 +23,46 @@ if not errorlevel 1 (
     )
 )
 
-echo [HATA] Python bulunamadi.
+REM --- Python yoksa otomatik kur ---
+echo [*] Python bulunamadi. Otomatik kurulum yapiliyor...
 echo(
-echo Lutfen once Python'u kurun: https://www.python.org/downloads/
-echo Kurulum sirasinda "Add Python to PATH" kutucugunu isaretlemeyi unutmayin.
-echo(
-pause
-exit /b 1
+
+set "PY_INSTALLER=%TEMP%\python-3.12.7-amd64.exe"
+set "PY_URL=https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe"
+
+echo [*] Python indiriliyor...
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%PY_URL%' -OutFile '%PY_INSTALLER%'" 2>nul
+
+if not exist "%PY_INSTALLER%" (
+    echo [HATA] Python indirilemedi.
+    echo Lutfen Python'u manuel olarak kurun: https://www.python.org/downloads/
+    pause
+    exit /b 1
+)
+
+echo [*] Python kuruluyor...
+"%PY_INSTALLER%" /quiet InstallAllUsers=0 PrependPath=1 TargetDir="%LOCALAPPDATA%\Python\Python312" /norestart
+if errorlevel 1 (
+    echo [HATA] Python kurulamadi.
+    echo Lutfen Python'u manuel olarak kurun: https://www.python.org/downloads/
+    del /q "%PY_INSTALLER%" >nul 2>nul
+    pause
+    exit /b 1
+)
+
+del /q "%PY_INSTALLER%" >nul 2>nul
+set "PYEXE=%LOCALAPPDATA%\Python\Python312\python.exe"
+
+if not exist "%PYEXE%" (
+    echo [HATA] Python kurulamadi.
+    echo Lutfen Python'u manuel olarak kurun: https://www.python.org/downloads/
+    pause
+    exit /b 1
+)
 
 :python_bulundu
 echo [OK] Python bulundu: %PYEXE%
+echo(
 
 REM --- Sanal ortam var mi? Yoksa kur ---
 if exist "venv\Scripts\python.exe" goto :venv_hazir
