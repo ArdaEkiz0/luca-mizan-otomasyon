@@ -50,6 +50,17 @@ def main() -> None:
     try:
         import webview  # pywebview
 
+        # pywebview'in Python executable bulmasini sagla
+        import shutil
+        if not getattr(sys, "frozen", False):
+            py_path = shutil.which("python") or shutil.which("py")
+            if py_path:
+                os.environ["PYTHON"] = py_path
+            # sys.executable'i guncelle (pywebview icin)
+            venv_python = Path(__file__).parent / "venv" / "Scripts" / "python.exe"
+            if venv_python.exists():
+                sys.executable = str(venv_python)
+
         window = webview.create_window(
             PENCERE_BASLIK,
             adres,
@@ -60,9 +71,6 @@ def main() -> None:
             background_color="#0f1023",
         )
 
-        # Not: webview.start(icon=...) pencere ikonunu .NET üzerinden kurar
-        # (görev çubuğu + pencere köşesi). webview.start() döndüğünde pencere
-        # kapatılmıştır; o noktada sunucuyu ve tarayıcıyı temiz kapat.
         start_ayarlari = {}
         ikon = _ikon_yolu()
         if ikon.exists():
