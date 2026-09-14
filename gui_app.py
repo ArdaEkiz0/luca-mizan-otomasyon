@@ -482,7 +482,7 @@ class LucaGUI(ctk.CTk):
         kontrol_aciklama = ctk.CTkLabel(
             kontrol_frame,
             text="İki mizan yükleyin — hangi hatada hangisi gösteriliyor ↓",
-            font=ctk.CTkFont(size=10, italic=True),
+            font=ctk.CTkFont(size=10),
             text_color="#888888",
         )
         kontrol_aciklama.pack(fill="x", padx=15, pady=(8, 0))
