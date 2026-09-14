@@ -476,7 +476,7 @@ class LucaGUI(ctk.CTk):
 
         # --- Mizan Kontrol ---
         kontrol_frame = ctk.CTkFrame(self, fg_color="#1a0f0f", corner_radius=10)
-        kontrol_frame.grid(row=5, column=0, padx=20, y=(5, 5), sticky="nsew")
+        kontrol_frame.grid(row=5, column=0, padx=20, pady=(5, 5), sticky="nsew")
         self.grid_rowconfigure(5, weight=1)
 
         kontrol_aciklama = ctk.CTkLabel(
@@ -627,7 +627,7 @@ class LucaGUI(ctk.CTk):
 
         # --- Log alani ---
         log_frame = ctk.CTkFrame(self, fg_color=RENKLER["panel_arka"], corner_radius=10)
-        log_frame.grid(row=6, column=0, padx=20, y=(5, 16), sticky="nsew")
+        log_frame.grid(row=6, column=0, padx=20, pady=(5, 16), sticky="nsew")
         self.grid_rowconfigure(6, weight=1)
 
         log_baslik = ctk.CTkLabel(
