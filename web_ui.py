@@ -312,6 +312,8 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._rapor_olustur(veri)
         elif yol == "/api/toplu_rapor":
             self._toplu_rapor(veri)
+        elif yol == "/api/kurallar":
+            self._kurallar_listele()
         elif yol == "/api/rapor_gecmis":
             self._rapor_gemis(veri)
         elif yol == "/api/rapor_karistirma":

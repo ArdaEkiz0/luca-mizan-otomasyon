@@ -1048,7 +1048,7 @@ function kurallarAc() {
   if (!overlay || !icerik) return;
   overlay.style.display = "flex";
   icerik.innerHTML = '<div style="text-align:center;padding:20px;">Yükleniyor...</div>';
-  fetch("/api/kurallar").then(c => c.json()).then(r => {
+  apiGonder("/api/kurallar", {}).then(r => {
     if (!r.ok) { icerik.innerHTML = '<div class="bos-liste">Hata: ' + muhafaza(r.hata || "Bilinmeyen hata") + '</div>'; return; }
     let h = '<div class="kurallar-listesi">';
     (r.kurallar || []).forEach(k => {
