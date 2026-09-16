@@ -76,7 +76,7 @@ def _git_pull(proj: Path, son: dict) -> dict:
         if result.returncode == 0:
             return {"ok": True, "guncellendi": True,
                     "mesaj": f"Guncelleme basarili!\n\n{cikti[:500]}",
-                    "yeni_surum": guncellememi_kontrol_et()["yeni"]}
+                    "yeni_surum": son.get("yeni", "")}
         else:
             return {"ok": False, "guncellendi": False,
                     "mesaj": f"Guncelleme basarisiz:\n{hata[:500]}\n\n{cikti[:300]}",

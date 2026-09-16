@@ -98,6 +98,13 @@ def kontrol_sonuc_kaydet(
     sinif: str = "1",
     kontrol_dosyasi: str = None,
 ) -> int:
+    kayit_ihlaller = []
+    for i in (ihlaller or []):
+        kanonik = dict(i)
+        kanonik["kural_id"] = i.get("kural_id") or i.get("kural", "")
+        kanonik["hesap_kodu"] = i.get("hesap_kodu") or i.get("hesap", "")
+        kanonik["hesap_adi"] = i.get("hesap_adi") or i.get("ad", "")
+        kayit_ihlaller.append(kanonik)
     conn = baglanti_olustur()
     c = conn.cursor()
     c.execute(
@@ -106,17 +113,17 @@ def kontrol_sonuc_kaydet(
             uyari_sayisi, ihlaller_json, kontrol_tarihi, yil, sinif, kontrol_dosyasi)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
         (dosya_adi, firma_adi, donem, satir_sayisi, durum, hata_sayisi,
-         uyari_sayisi, json.dumps(ihlaller or []), datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+         uyari_sayisi, json.dumps(kayit_ihlaller), datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
          yil, sinif, kontrol_dosyasi),
     )
     kontrol_id = c.lastrowid
-    for i in (ihlaller or []):
+    for i in kayit_ihlaller:
         c.execute(
             """INSERT INTO hata_ihlalleri
                (kontrol_id, kural_id, hesap_kodu, hesap_adi, seviye, deger, mesaj)
                VALUES (?,?,?,?,?,?,?)""",
-            (kontrol_id, i.get("kural_id", ""), i.get("hesap_kodu", ""),
-             i.get("hesap_adi", ""), i.get("seviye", ""), i.get("deger", ""),
+            (kontrol_id, i["kural_id"], i["hesap_kodu"],
+             i["hesap_adi"], i.get("seviye", ""), i.get("deger", ""),
              i.get("mesaj", "")),
         )
     conn.commit()
@@ -132,7 +139,7 @@ def kontrol_sonuclari_getir(
     yil: str = None,
     baslangic: str = None,
     bitis: str = None,
-    limit: int = 100,
+    limit: Optional[int] = 100,
 ) -> list:
     conn = baglanti_olustur()
     c = conn.cursor()
@@ -147,7 +154,7 @@ def kontrol_sonuclari_getir(
     if gunun:
         query += " AND kontrol_tarihi LIKE ?"
         params.append(f"%{gunun}%")
-    if gun:
+    if gun is not None:
         query += " AND CAST(strftime('%w', kontrol_tarihi) AS INTEGER) = ?"
         params.append(gun)
     if yil:
@@ -157,10 +164,15 @@ def kontrol_sonuclari_getir(
         query += " AND kontrol_tarihi >= ?"
         params.append(baslangic)
     if bitis:
-        query += " AND kontrol_tarihi <= ?"
+        if len(bitis) == 10:
+            query += " AND kontrol_tarihi < date(?, '+1 day')"
+        else:
+            query += " AND kontrol_tarihi <= ?"
         params.append(bitis)
-    query += " ORDER BY kontrol_tarihi DESC LIMIT ?"
-    params.append(limit)
+    query += " ORDER BY kontrol_tarihi DESC"
+    if limit is not None:
+        query += " LIMIT ?"
+        params.append(limit)
     rows = c.execute(query, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]

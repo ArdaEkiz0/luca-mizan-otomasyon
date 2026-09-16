@@ -1295,6 +1295,137 @@ class TestKapsamliSenaryolar(unittest.TestCase):
 # _sirket_sec_kombodan TESTLERİ (SirketCombo + DonemCombo + Tamam)
 # ============================================================
 
+class TestSirketSecKombodanDogrulama(unittest.TestCase):
+
+    def setUp(self):
+        self.klasor = tempfile.TemporaryDirectory()
+        self.addCleanup(self.klasor.cleanup)
+        self.core = LucaOtomasyonCore("1", "a", "b", cikti_klasoru=self.klasor.name)
+        self.core._son_yil = "2026"
+        self.sirket_id = "112285648"
+        self.top_frame = MockFrame("https://test.luca.com.tr/TopFrameAction.do")
+        self.combo = MagicMock()
+        self.combo.count.return_value = 1
+        self.combo.locator.return_value.count.return_value = 1
+        secenek = self.combo.locator.return_value.nth.return_value
+        secenek.inner_text.return_value = "TEST FIRMA"
+        secenek.get_attribute.return_value = self.sirket_id
+        self.combo.evaluate.return_value = self.sirket_id
+        donem = MagicMock()
+        donem.locator.return_value.count.return_value = 2
+        donem.locator.return_value.nth.return_value.inner_text.return_value = "2026"
+        self.top_frame.locator.side_effect = lambda s: self.combo if s == "#SirketCombo" else donem
+        self.top_frame.evaluate.return_value = {"ok": True}
+        self.core.dashboard = MockPage("https://test.luca.com.tr/luca.do")
+        self.core.dashboard.frames = [self.top_frame]
+        self.log = MagicMock()
+
+    def test_hedef_sirket_id_basarili(self):
+        self.top_frame.url += "?SIRKET_ID=" + self.sirket_id
+        self.assertTrue(self.core._sirket_sec_kombodan("TEST FIRMA", self.log))
+        self.combo.select_option.assert_called_once_with(value=self.sirket_id)
+        self.top_frame.evaluate.assert_called_once()
+
+    def test_url_kodlanmis_id_basarili(self):
+        self.top_frame.url += "?DONEM_ID=1&SIRKET_ID=%31" + self.sirket_id[1:]
+        self.assertTrue(self.core._sirket_sec_kombodan("TEST FIRMA", self.log))
+
+    def test_yanlis_veya_eksik_sirket_id_reddedilir(self):
+        for sorgu in (
+            "?SIRKET_ID=999", "?SIRKET_ID=" + self.sirket_id + "0",
+            "?SIRKET_ID=", "?DONEM_ID=1", "#SIRKET_ID=" + self.sirket_id,
+            "?ESKI_SIRKET_ID=" + self.sirket_id,
+            "?SIRKET_ID=" + self.sirket_id + "&SIRKET_ID=999",
+            "?SIRKET_ID=" + self.sirket_id + "&SIRKET_ID=",
+        ):
+            with self.subTest(sorgu=sorgu):
+                self.top_frame.url = "https://test.luca.com.tr/TopFrameAction.do" + sorgu
+                self.top_frame.evaluate.reset_mock()
+                with self.assertRaisesRegex(RuntimeError, "Firma değişimi"):
+                    self.core._sirket_sec_kombodan("TEST FIRMA", self.log)
+                self.assertEqual(self.top_frame.evaluate.call_count, 2)
+
+    def test_diger_frame_id_dogrulama_sayilmaz(self):
+        def gonder(code):
+            if self.top_frame.evaluate.call_count == 2:
+                self.core.dashboard.frames[0].url += "?SIRKET_ID=999"
+            return {"ok": True}
+
+        self.top_frame.evaluate.side_effect = gonder
+        self.core.dashboard.frames.append(MockFrame(
+            "https://test.luca.com.tr/musteriBilgileri.do?SIRKET_ID=" + self.sirket_id
+        ))
+        with self.assertRaisesRegex(RuntimeError, "Firma değişimi"):
+            self.core._sirket_sec_kombodan("TEST FIRMA", self.log)
+        self.assertEqual(self.top_frame.evaluate.call_count, 2)
+
+    def test_ikinci_deneme_hedef_id_basarili(self):
+        def gonder(code):
+            if self.top_frame.evaluate.call_count == 2:
+                self.top_frame.url += "?SIRKET_ID=" + self.sirket_id
+            return {"ok": True}
+
+        self.top_frame.evaluate.side_effect = gonder
+        self.assertTrue(self.core._sirket_sec_kombodan("TEST FIRMA", self.log))
+        self.assertEqual(self.top_frame.evaluate.call_count, 2)
+
+    def test_ikinci_deneme_yanlis_id_reddedilir(self):
+        def gonder(code):
+            if self.top_frame.evaluate.call_count == 2:
+                self.top_frame.url += "?SIRKET_ID=999"
+            return {"ok": True}
+
+        self.top_frame.evaluate.side_effect = gonder
+        with self.assertRaisesRegex(RuntimeError, "Firma değişimi"):
+            self.core._sirket_sec_kombodan("TEST FIRMA", self.log)
+        self.assertEqual(self.top_frame.evaluate.call_count, 2)
+
+    def test_formsubmit_basarisiz_sonuc_reddedilir(self):
+        self.top_frame.url += "?SIRKET_ID=" + self.sirket_id
+        for sonuc in ({"ok": False, "msg": "formSubmit yok"}, {"ok": False}, {}, None, False):
+            with self.subTest(sonuc=sonuc):
+                self.top_frame.evaluate.reset_mock()
+                self.top_frame.evaluate.side_effect = None
+                self.top_frame.evaluate.return_value = sonuc
+                with self.assertRaisesRegex(RuntimeError, "formSubmit"):
+                    self.core._sirket_sec_kombodan("TEST FIRMA", self.log)
+                self.top_frame.evaluate.assert_called_once()
+
+    def test_ikinci_formsubmit_basarisiz_sonuc_reddedilir(self):
+        def gonder(code):
+            if self.top_frame.evaluate.call_count == 2:
+                self.top_frame.url += "?SIRKET_ID=" + self.sirket_id
+                return {"ok": False, "msg": "formSubmit yok"}
+            return {"ok": True}
+
+        self.top_frame.evaluate.side_effect = gonder
+        with self.assertRaisesRegex(RuntimeError, "formSubmit"):
+            self.core._sirket_sec_kombodan("TEST FIRMA", self.log)
+        self.assertEqual(self.top_frame.evaluate.call_count, 2)
+
+    def test_formsubmit_istisnalari_yutulmaz(self):
+        for sonuclar in ([ValueError("gonderilemedi")], [{"ok": True}, ValueError("gonderilemedi")]):
+            with self.subTest(deneme=len(sonuclar)):
+                self.top_frame.evaluate.reset_mock()
+                self.top_frame.evaluate.side_effect = sonuclar
+                with self.assertRaisesRegex(RuntimeError, "formSubmit"):
+                    self.core._sirket_sec_kombodan("TEST FIRMA", self.log)
+                self.assertEqual(self.top_frame.evaluate.call_count, len(sonuclar))
+
+    def test_musteri_sec_dogrulanamayan_firmayla_devam_etmez(self):
+        self.core.liste_frame = MockFrame()
+        with self.assertRaisesRegex(RuntimeError, "Firma değişimi"):
+            self.core.musteri_sec("TEST FIRMA", self.log)
+        self.core.liste_frame.locator.assert_not_called()
+
+    def test_musteri_sec_formsubmit_yokken_devam_etmez(self):
+        self.core.liste_frame = MockFrame()
+        self.top_frame.evaluate.return_value = {"ok": False, "msg": "formSubmit yok"}
+        with self.assertRaisesRegex(RuntimeError, "formSubmit"):
+            self.core.musteri_sec("TEST FIRMA", self.log)
+        self.core.liste_frame.locator.assert_not_called()
+
+
 class TestSirketSecKombodan(unittest.TestCase):
 
     def _kombodan_kurulum(self):

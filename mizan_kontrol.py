@@ -115,16 +115,32 @@ def _sayi(c) -> float:
         return 0.0
     if isinstance(c, (int, float)):
         return float(c)
-    s = str(c).strip()
+    s = str(c).strip().replace(" ", "").replace("\u00a0", "")
     if not s:
         return 0.0
+    # Turbo/Excel formatlari: "1.234,56" (TR), "1,234.56" (EN), "-123,45"
+    negatif = s.startswith("-") or s.startswith("(")
+    s = s.lstrip("-( ").rstrip(") ")
+    nokta, virgul = s.count("."), s.count(",")
     try:
-        return float(s.replace(",", "."))
+        if nokta and virgul:
+            # Ikisi birden: son ayirici ondalikdir
+            if s.rfind(",") > s.rfind("."):
+                f = s.replace(".", "").replace(",", ".")
+            else:
+                f = s.replace(",", "")
+        elif virgul:
+            # Sadece virgul (TR): saginda tam 3 hane varsa binliktir, degilse ondalik
+            f = s.replace(",", "") if len(s) - s.rfind(",") == 4 else s.replace(",", ".")
+        elif nokta:
+            # Sadece nokta (TR): saginda tam 3 hane varsa binliktir, degilse ondalik
+            f = s.replace(".", "") if len(s) - s.rfind(".") == 4 else s
+        else:
+            f = s
+        deger = float(f)
+        return -deger if negatif else deger
     except ValueError:
-        try:
-            return float(s.replace(".", "").replace(",", "."))
-        except ValueError:
-            return 0.0
+        raise ValueError(f"Gecersiz sayi: {c!r}") from None
 
 
 def _kod_esles(kod: str, hedef: str) -> bool:
@@ -260,17 +276,23 @@ class MizanKontrolMotoru:
         return False
 
     def _indeks_olustur(self) -> dict[str, list[dict]]:
-        """Hesap kodlarini kurallara baglayan indeks olusturur."""
+        """Hesap kodlarini kurallara baglayan indeks olusturur.
+        on_ek_* ve bakiye_yok kurallari on ek (prefix) eslesmesi yapar."""
         indeks = defaultdict(list)
         for kural in self.kurallar:
-            kodlar = kural.get("kodlar", [])
-            tip = kural.get("tip", "")
-            for kod in kodlar:
-                if tip in ("on_ek_borc", "on_ek_alacak", "bakiye_yok"):
-                    indeks[kod].append(kural)
-                else:
-                    indeks[kod].append(kural)
+            for kod in kural.get("kodlar", []):
+                indeks[kod].append(kural)
         return dict(indeks)
+
+    def _kurallari_bul(self, indeks: dict[str, list[dict]], kod: str) -> list[dict]:
+        """Koda uyan kurallari dondurur: tam eslesme her zaman; on_ek/bakiye
+        kurallari icin kod, hedef on ek ile basliyorsa da eslesir."""
+        bulunan = list(indeks.get(kod, []))
+        for on_ek, kurallar in indeks.items():
+            if on_ek != kod and kod.startswith(on_ek):
+                bulunan.extend(k for k in kurallar
+                               if k.get("tip") in ("on_ek_borc", "on_ek_alacak", "bakiye_yok"))
+        return bulunan
 
     def kontrol_raporu_yaz(self, sonuc: KontrolSonucu, hedef: Path) -> Path:
         """Kontrol sonucunu Excel dosyasi olarak yazar."""
@@ -384,7 +406,7 @@ def mizan_kontrol(dosya_yolu: Path | str) -> KontrolSonucu:
     for satir in satirlar:
         kod = satir["kod"]
         ad = satir["ad"]
-        eslesen_kurallar = indeks.get(kod, [])
+        eslesen_kurallar = _motor._kurallari_bul(indeks, kod)
 
         for kural in eslesen_kurallar:
             ihlal = _kural_uygula(kural, kod, ad, satir)
@@ -536,9 +558,10 @@ def kural_istatistik_yaz(hedef: Path | None = None) -> Path:
     for kolon, g in zip("ABCDE", [12, 10, 10, 10, 25]):
         ws.column_dimensions[kolon].width = g
 
-    if hedef:
-        wb.save(hedef)
-    return hedef or Path("kural_istatistik.xlsx")
+    if hedef is None:
+        hedef = Path("kural_istatistik.xlsx")
+    wb.save(hedef)
+    return hedef
 
 
 def kontrol_raporu_yaz(sonuc: KontrolSonucu, hedef: Path) -> Path:

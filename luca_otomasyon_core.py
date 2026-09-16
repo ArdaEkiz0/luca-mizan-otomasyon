@@ -1028,6 +1028,7 @@ class LucaOtomasyonCore:
             TopFrameAction.do?...&SIRKET_ID=<id>&DONEM_ID=<donem>&DONEM_TXT=...
         Bu yöntem başarılıysa True döner."""
         from time import time as _zaman
+        from urllib.parse import parse_qs, urlparse
 
         # --- Önce frameset ana sayfasında olduğumuzdan emin ol ---
         # Müşteri listesi doğrudan dashboard.goto(listSirketAction) ile
@@ -1210,40 +1211,51 @@ class LucaOtomasyonCore:
             )
             log(f"  formSubmit çağrıldı: {sonuc}")
         except Exception as e:
-            log(f"  formSubmit hatası: {str(e)[:120]}")
-            return False
+            raise RuntimeError(f"formSubmit hatası: {str(e)[:120]}") from e
+        if not isinstance(sonuc, dict) or sonuc.get("ok") is not True:
+            raise RuntimeError(f"formSubmit başarısız: {sonuc}")
 
-        # Doğrula: TopFrameAction URL'i SIRKET_ID içeriyor mu? (10 sn bekle)
         for _ in range(20):
             for cv in self.dashboard.frames:
                 try:
-                    if "TopFrameAction" in cv.url and "SIRKET_ID" in cv.url:
-                        log(f"  Firma değişti: {cv.url[:140]}")
-                        return True
+                    if "TopFrameAction" in cv.url:
+                        qs = parse_qs(urlparse(cv.url).query, keep_blank_values=True)
+                        if qs.get("SIRKET_ID") == [secili_deger]:
+                            log(f"  Firma değişti: {cv.url[:140]}")
+                            return True
                 except Exception:
                     continue
             top_frame.wait_for_timeout(500)
         log("  UYARI: Firma değişimi doğrulanamadı — yeniden deneniyor...")
         # Bir kez daha formSubmit dene (bazen ilk çağrı seçimi işlemez)
         try:
-            top_frame.evaluate(
+            ikinci = top_frame.evaluate(
                 """() => {
-                    if (typeof formSubmit === 'function') { formSubmit(null, 0); return true; }
-                    return false;
+                    if (typeof formSubmit === 'function') {
+                        formSubmit(null, 0);
+                        return {ok: true};
+                    }
+                    return {ok: false, msg: 'formSubmit yok'};
                 }"""
             )
             top_frame.wait_for_timeout(3000)
-        except Exception:
-            pass
+        except Exception as e:
+            raise RuntimeError(f"formSubmit hatası (2. deneme): {str(e)[:120]}") from e
+        if not isinstance(ikinci, dict) or ikinci.get("ok") is not True:
+            raise RuntimeError(f"formSubmit başarısız (2. deneme): {ikinci}")
         for cv in self.dashboard.frames:
             try:
-                if "TopFrameAction" in cv.url and "SIRKET_ID" in cv.url:
-                    log(f"  Firma değişti (2. deneme): {cv.url[:140]}")
-                    return True
+                if "TopFrameAction" in cv.url:
+                    qs = parse_qs(urlparse(cv.url).query, keep_blank_values=True)
+                    if qs.get("SIRKET_ID") == [secili_deger]:
+                        log(f"  Firma değişti (2. deneme): {cv.url[:140]}")
+                        return True
             except Exception:
                 continue
-        log("  HATA: Firma değişimi hiç doğrulanamadı — SirketCombo başarısız.")
-        return False
+        raise RuntimeError(
+            f"Firma değişimi doğrulanamadı — URL'de SIRKET_ID={secili_deger} yok "
+            f"(SirketCombo başarısız)."
+        )
 
     def musteri_sec(self, kisa_ad: str, log: LogFn = _sessiz_log) -> None:
         if self.liste_frame is None:

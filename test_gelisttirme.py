@@ -2,12 +2,150 @@ import os
 import sys
 import tempfile
 import shutil
+import json
+import unittest
+from unittest.mock import Mock, patch
 from pathlib import Path
 
 import pytest
 
 BASE = Path(__file__).parent.resolve()
 sys.path.insert(0, str(BASE))
+
+
+class TestVeriTabaniRegresyon(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(patch.dict(sys.modules, {
+            "dotenv": Mock(load_dotenv=Mock(return_value=False)),
+        }))
+        import veri_tabani
+        self.db = veri_tabani
+        tmpdir = self.enterContext(tempfile.TemporaryDirectory(dir=Path.cwd()))
+        self.enterContext(patch.object(
+            self.db, "_db_yol", return_value=Path(tmpdir) / "regresyon.db",
+        ))
+
+    def _tarihli_kayitlar(self, tarihler):
+        conn = self.db.baglanti_olustur()
+        try:
+            conn.executemany(
+                "INSERT INTO kontrol_sonuclari "
+                "(dosya_adi, durum, kontrol_tarihi) VALUES (?, 'OK', ?)",
+                [(f"{tarih}.xlsx", tarih) for tarih in tarihler],
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def _ihlali_dogrula(self, ihlal, beklenen):
+        orijinal = dict(ihlal)
+        kid = self.db.kontrol_sonuc_kaydet("test.xlsx", ihlaller=[ihlal])
+        satirlar = self.db.ihlaller_getir(kid)
+        self.assertEqual(len(satirlar), 1)
+        for anahtar, deger in beklenen.items():
+            self.assertEqual(satirlar[0][anahtar], deger)
+        kayit = next(
+            s for s in self.db.kontrol_sonuclari_getir() if s["id"] == kid
+        )
+        self.assertEqual(json.loads(kayit["ihlaller_json"]), [{**orijinal, **beklenen}])
+        self.assertEqual(ihlal, orijinal)
+
+    def test_kanonik_ihlal_kaydedilir(self):
+        ihlal = {
+            "kural_id": "K1", "hesap_kodu": "100.01", "hesap_adi": "Kasa",
+            "seviye": "HATA", "deger": "12.50", "mesaj": "Test hata",
+        }
+        self._ihlali_dogrula(ihlal, ihlal)
+
+    def test_eski_web_anahtarlari_korunur(self):
+        self._ihlali_dogrula(
+            {"kural": "K11", "hesap": "760", "ad": "Gider",
+             "seviye": "UYARI", "mesaj": "Test uyari", "oneri": "Korunacak"},
+            {"kural_id": "K11", "hesap_kodu": "760", "hesap_adi": "Gider"},
+        )
+
+    def test_kanonik_anahtarlar_onceliklidir(self):
+        self._ihlali_dogrula(
+            {"kural_id": "K1", "hesap_kodu": "100", "hesap_adi": "Kasa",
+             "kural": "K2", "hesap": "102", "ad": "Banka"},
+            {"kural_id": "K1", "hesap_kodu": "100", "hesap_adi": "Kasa"},
+        )
+
+    def test_bos_kanonik_anahtarlar_eski_anahtarlardan_alinir(self):
+        self._ihlali_dogrula(
+            {"kural_id": None, "hesap_kodu": "", "hesap_adi": None,
+             "kural": "K1", "hesap": "100", "ad": "Kasa"},
+            {"kural_id": "K1", "hesap_kodu": "100", "hesap_adi": "Kasa"},
+        )
+
+    def test_ihlalsiz_kayit(self):
+        for ihlaller in (None, []):
+            with self.subTest(ihlaller=ihlaller):
+                kid = self.db.kontrol_sonuc_kaydet("bos.xlsx", ihlaller=ihlaller)
+                self.assertEqual(self.db.ihlaller_getir(kid), [])
+        self.assertTrue(all(
+            json.loads(s["ihlaller_json"]) == []
+            for s in self.db.kontrol_sonuclari_getir()
+        ))
+
+    def test_tarih_araligi_tum_gunu_kapsar(self):
+        tarihler = [
+            "2026-09-12 23:59:59", "2026-09-13 00:00:00",
+            "2026-09-13 12:00:00", "2026-09-13 23:59:59.999999",
+            "2026-09-14 00:00:00",
+        ]
+        self._tarihli_kayitlar(tarihler)
+        rows = self.db.kontrol_sonuclari_getir(
+            baslangic="2026-09-13", bitis="2026-09-13",
+        )
+        self.assertEqual([r["kontrol_tarihi"] for r in rows], tarihler[1:4][::-1])
+
+    def test_zaman_damgasi_sinirlari_dahildir(self):
+        tarihler = [
+            "2026-09-13 11:59:59", "2026-09-13 12:00:00",
+            "2026-09-13 12:30:00", "2026-09-13 13:00:00",
+            "2026-09-13 13:00:00.000001",
+        ]
+        self._tarihli_kayitlar(tarihler)
+        rows = self.db.kontrol_sonuclari_getir(
+            baslangic="2026-09-13 12:00:00", bitis="2026-09-13 13:00:00",
+        )
+        self.assertEqual([r["kontrol_tarihi"] for r in rows], tarihler[1:4][::-1])
+
+    def test_tarih_bitisi_ay_yil_ve_artik_gun_sinirlari(self):
+        for gun, ertesi in (
+            ("2026-09-30", "2026-10-01"),
+            ("2026-12-31", "2027-01-01"),
+            ("2028-02-29", "2028-03-01"),
+        ):
+            with self.subTest(gun=gun):
+                tarih = gun + " 23:59:59.999999"
+                self._tarihli_kayitlar([tarih, ertesi + " 00:00:00"])
+                rows = self.db.kontrol_sonuclari_getir(baslangic=gun, bitis=gun)
+                self.assertEqual([r["kontrol_tarihi"] for r in rows], [tarih])
+
+    def test_pazar_sifir_filtresi(self):
+        tarihler = [
+            "2026-09-12 12:00:00", "2026-09-13 12:00:00", "2026-09-14 12:00:00",
+        ]
+        self._tarihli_kayitlar(tarihler)
+        for gun, beklenen in ((0, tarihler[1]), (1, tarihler[2])):
+            with self.subTest(gun=gun):
+                rows = self.db.kontrol_sonuclari_getir(gun=gun)
+                self.assertEqual([r["kontrol_tarihi"] for r in rows], [beklenen])
+        self.assertEqual(len(self.db.kontrol_sonuclari_getir()), 3)
+
+    def test_limitsiz_sirali_sonuclar_ve_sayisal_limit(self):
+        tarihler = [f"2026-09-13 12:{i // 60:02}:{i % 60:02}" for i in range(105)]
+        self._tarihli_kayitlar(tarihler)
+        rows = self.db.kontrol_sonuclari_getir(limit=None)
+        self.assertEqual([r["kontrol_tarihi"] for r in rows], tarihler[::-1])
+        self.assertEqual(len(self.db.kontrol_sonuclari_getir()), 100)
+        self.assertEqual(self.db.kontrol_sonuclari_getir(limit=0), [])
+        self.assertEqual(
+            [r["kontrol_tarihi"] for r in self.db.kontrol_sonuclari_getir(limit=2)],
+            tarihler[-2:][::-1],
+        )
 
 
 # --- SQLite Tests ---
