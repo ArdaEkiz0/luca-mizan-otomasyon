@@ -690,7 +690,7 @@ class LucaOtomasyonCore:
 
         log("Tarayıcı başlatılıyor...")
         self._playwright = sync_playwright().start()
-        self._browser = self._playwright.chromium.launch(headless=self.headless, slow_mo=30)
+        self._browser = self._playwright.chromium.launch(headless=self.headless, slow_mo=30, channel="chrome")
         self._context = self._browser.new_context(accept_downloads=True)
 
         log("Giriş sayfası açılıyor...")
