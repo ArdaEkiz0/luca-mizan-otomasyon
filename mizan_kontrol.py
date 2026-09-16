@@ -31,7 +31,7 @@ logger = logging.getLogger("mizan_kontrol")
 
 KURALLAR = [
     {"id": "K1", "tip": "ana_hesap", "kodlar": ["100"], "hedef_kolon": "alacak_bakiye",
-     "seviye": "HATA", "kosul": "100 ana hesap ALACAK bakiyeli olmamali (negatif olmamali)"},
+     "seviye": "HATA", "kosul": "100 ana hesap alacak bakiyeli olmamali"},
     {"id": "K2", "tip": "borc_limit", "kodlar": ["100"], "limit": 3000000, "seviye": "HATA",
      "kosul": "100 ana hesap borc bakiyesi 3.000.000 TL yi gecmemeli", "kolon": "borc_bakiye"},
     {"id": "K3", "tip": "ana_hesap", "kodlar": ["103"], "hedef_kolon": "borc_bakiye",
