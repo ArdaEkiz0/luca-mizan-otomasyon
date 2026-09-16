@@ -1332,10 +1332,12 @@ class TestSirketSecKombodan(unittest.TestCase):
         top_frame.locator.side_effect = lambda s: combo if s == "#SirketCombo" else donem
         top_frame.evaluate.return_value = {"ok": True}
 
-        # Dashboard: luca.do sayfası, frames=[top_frame]
+        # Dashboard: luca.do sayfası, frames=[top_frame, dogrulama_frame]
+        dogrulama_frame = MagicMock()
+        dogrulama_frame.url = "https://auygs.luca.com.tr/Luca/TopFrameAction.do?SIRKET_ID=112285648&DONEM_ID=37990903"
         page = MockPage()
         page.url = "https://auygs.luca.com.tr/Luca/luca.do"
-        page.frames = [top_frame]
+        page.frames = [top_frame, dogrulama_frame]
         core.dashboard = page
 
         return core, top_frame

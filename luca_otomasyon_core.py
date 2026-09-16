@@ -1242,7 +1242,8 @@ class LucaOtomasyonCore:
                     return True
             except Exception:
                 continue
-        return True
+        log("  HATA: Firma değişimi hiç doğrulanamadı — SirketCombo başarısız.")
+        return False
 
     def musteri_sec(self, kisa_ad: str, log: LogFn = _sessiz_log) -> None:
         if self.liste_frame is None:
