@@ -871,6 +871,8 @@ function raporDetayModalKapat(e) {
   if (modal) modal.style.display = "none";
 }
 
+let kontrolDetayIhlaller = [];
+
 async function kontrolDetay(id) {
   const modal = sec("kontrolDetayModal");
   if (!modal) return;
@@ -878,9 +880,12 @@ async function kontrolDetay(id) {
   const grid = sec("kontrolDetayGrid");
   const ihlallerDiv = sec("kontrolDetayIhlaller");
   const baslik = sec("kontrolDetayBaslik");
+  const filtreInput = sec("kontrolDetayHesapFiltre");
+  if (filtreInput) filtreInput.value = "";
   if (grid) grid.innerHTML = '<div class="bos-liste">Yükleniyor...</div>';
   if (ihlallerDiv) ihlallerDiv.innerHTML = '<div class="bos">Yükleniyor...</div>';
   if (baslik) baslik.textContent = "Kontrol Detayı";
+  kontrolDetayIhlaller = [];
   try {
     const r = await apiGonder("/api/kontrol/gecmis-detay", { id: id });
     if (!r.ok) {
@@ -903,6 +908,7 @@ async function kontrolDetay(id) {
     }
     if (ihlallerDiv) {
       const ihl = d.ihlaller || [];
+      kontrolDetayIhlaller = ihl;
       if (ihl.length === 0) {
         ihlallerDiv.innerHTML = '<div class="bos">İhlal kaydı yok.</div>';
         return;
@@ -946,6 +952,52 @@ async function kontrolDetay(id) {
   } catch (e) {
     if (grid) grid.innerHTML = '<div class="bos-liste">Bağlantı hatası.</div>';
   }
+}
+
+function kontrolDetayFiltrele() {
+  const filtreInput = sec("kontrolDetayHesapFiltre");
+  const ihlallerDiv = sec("kontrolDetayIhlaller");
+  if (!filtreInput || !ihlallerDiv) return;
+  const filtre = (filtreInput.value || "").trim().toLowerCase();
+  const ihl = filtre ? kontrolDetayIhlaller.filter(i => (i.hesap_kodu || "").toLowerCase().includes(filtre)) : kontrolDetayIhlaller;
+  if (ihl.length === 0) {
+    ihlallerDiv.innerHTML = '<div class="bos">Sonuç bulunamadı.</div>';
+    return;
+  }
+  const ozet = {};
+  ihl.forEach(i => {
+    const hk = i.hesap_kodu || "bilinmiyor";
+    if (!ozet[hk]) ozet[hk] = {hata: 0, uyari: 0};
+    if ((i.seviye || "").toLowerCase() === "hata") ozet[hk].hata++;
+    else ozet[hk].uyari++;
+  });
+  let ozetHtml = '<div class="ihl-ozet"><h4>Hesap Bazlı Özet</h4><div class="ihl-ozet-tablo">';
+  const sirali = Object.entries(ozet).sort((a, b) => (b[1].hata + b[1].uyari) - (a[1].hata + a[1].uyari));
+  sirali.forEach(([hesap, s]) => {
+    const toplam = s.hata + s.uyari;
+    ozetHtml += '<div class="ihl-ozet-satir">'
+      + '<span class="ihl-ozet-hesap">' + muhafaza(hesap) + '</span>'
+      + '<span class="ihl-ozet-hata">' + s.hata + ' HATA</span>'
+      + '<span class="ihl-ozet-uyari">' + s.uyari + ' UYARI</span>'
+      + '<span class="ihl-ozet-toplam">' + toplam + ' toplam</span>'
+      + '</div>';
+  });
+  ozetHtml += '</div></div>';
+  let ih = "";
+  ihl.forEach(i => {
+    const sev = (i.seviye || "").toLowerCase();
+    const sevClass = sev === "hata" ? "hata" : sev === "uyari" ? "uyari" : "";
+    ih += '<div class="ihl-satir">' +
+      '<span class="ihl-kural">' + muhafaza(i.kural_id || "") + '</span>' +
+      '<span class="ihl-hesap">' + muhafaza(i.hesap_kodu || "") + '</span>' +
+      '<span class="ihl-mesaj">' + muhafaza(i.mesaj || i.deger || "") + '</span>' +
+      (sevClass ? '<span class="ihl-seviye ' + sevClass + '">' + (i.seviye || "").toUpperCase() + '</span>' : '') +
+    '</div>';
+    if (i.oneri) {
+      ih += '<div class="ihl-oneri">💡 ' + muhafaza(i.oneri) + '</div>';
+    }
+  });
+  ihlallerDiv.innerHTML = ozetHtml + ih;
 }
 
 async function raporDetay(id) {
