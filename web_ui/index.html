@@ -170,6 +170,7 @@
         <input class="arama" id="kontrolArama" type="text" placeholder="Firma ara..." oninput="kontrolFiltreleAra()">
         <button class="btn btn-mor btn-kucuk" onclick="mizanKontrol()" id="kontrolBtn">Raporlari Kontrol Et</button>
         <button class="btn btn-gri btn-kucuk" onclick="kontrolGecmisAc()">📜 Geçmiş</button>
+        <button class="btn btn-gri btn-kucuk" onclick="kurallarAc()">📋 Kurallar</button>
       </div>
     </div>
     <div class="kontrol-istatistik" id="kontrolIstatistik" style="display:none;">
@@ -401,6 +402,16 @@
       <h3>Kontrol Geçmişi</h3>
       <div id="musteriDetayKontroller"></div>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="kurallarOverlay" style="display:none;" onclick="event.target===this&&kurallarKapat()">
+  <div class="modal-kutu" style="max-width:700px;">
+    <div class="modal-baslik">
+      <span>Kontrol Kuralları (K1-K12)</span>
+      <button class="modal-kapat" onclick="kurallarKapat()">✕</button>
+    </div>
+    <div id="kurallarIcerik" style="padding:12px;font-size:12px;"></div>
   </div>
 </div>
 

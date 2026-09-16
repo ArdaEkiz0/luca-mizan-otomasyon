@@ -969,6 +969,33 @@ function musteriDetayModalKapat(e) {
   if (modal) modal.style.display = "none";
 }
 
+function kurallarAc() {
+  const overlay = sec("kurallarOverlay");
+  const icerik = sec("kurallarIcerik");
+  if (!overlay || !icerik) return;
+  overlay.style.display = "flex";
+  icerik.innerHTML = '<div style="text-align:center;padding:20px;">Yükleniyor...</div>';
+  fetch("/api/kurallar").then(c => c.json()).then(r => {
+    if (!r.ok) { icerik.innerHTML = '<div class="bos-liste">Hata: ' + muhafaza(r.hata || "Bilinmeyen hata") + '</div>'; return; }
+    let h = '<div class="kurallar-listesi">';
+    (r.kurallar || []).forEach(k => {
+      const sevClass = (k.seviye || "").toLowerCase() === "hata" ? "hata" : "uyari";
+      h += '<div class="kural-satir">'
+        + '<div class="kural-satir-baslik">'
+        + '<span class="kural-id">' + muhafaza(k.id) + '</span>'
+        + '<span class="kural-seviye ' + sevClass + '">' + muhafaza(k.seviye) + '</span>'
+        + '<span class="kural-kodlar">' + muhafaza((k.kodlar || []).join(", ")) + '</span>'
+        + '</div>'
+        + '<div class="kural-kosul">' + muhafaza(k.kosul) + '</div>'
+        + (k.oneri ? '<div class="kural-oneri">💡 ' + muhafaza(k.oneri) + '</div>' : '')
+        + '</div>';
+    });
+    h += '</div>';
+    icerik.innerHTML = h;
+  }).catch(e => { icerik.innerHTML = '<div class="bos-liste">Bağlantı hatası.</div>'; });
+}
+function kurallarKapat() { const o = sec("kurallarOverlay"); if (o) o.style.display = "none"; }
+
 async function musteriDetay(kisaAd) {
   const modal = sec("musteriDetayModal");
   if (!modal) return;

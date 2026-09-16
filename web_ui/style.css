@@ -587,3 +587,13 @@ body {
 .ihl-ozet-hata { color: var(--kirmizi); min-width: 60px; }
 .ihl-ozet-uyari { color: #facc15; min-width: 70px; }
 .ihl-ozet-toplam { color: var(--metin-soluk); }
+.kurallar-listesi { display: flex; flex-direction: column; gap: 8px; }
+.kural-satir { padding: 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid var(--border); }
+.kural-satir-baslik { display: flex; gap: 10px; align-items: center; margin-bottom: 4px; }
+.kural-id { font-weight: 700; font-size: 13px; color: var(--turkuaz); min-width: 35px; }
+.kural-seviye { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; }
+.kural-seviye.hata { background: rgba(239,68,68,0.2); color: var(--kirmizi); }
+.kural-seviye.uyari { background: rgba(250,204,21,0.2); color: #facc15; }
+.kural-kodlar { font-size: 11px; color: var(--metin-soluk); }
+.kural-kosul { font-size: 12px; color: var(--metin); }
+.kural-oneri { font-size: 11px; color: var(--turkuaz); margin-top: 4px; font-style: italic; }

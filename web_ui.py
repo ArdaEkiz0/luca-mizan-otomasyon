@@ -264,6 +264,9 @@ class ApiHandler(BaseHTTPRequestHandler):
         if yol == "/api/docs":
             self._api_docs()
             return
+        if yol == "/api/kurallar":
+            self._kurallar_listele()
+            return
 
         # Statik dosyalar
         if yol in ("/", "/index.html"):
@@ -1090,6 +1093,25 @@ class ApiHandler(BaseHTTPRequestHandler):
                 ih["oneri"] = hata_onusu_ara(ih.get("kural_id", ""), ih.get("hesap_kodu", ""), ih.get("mesaj", ""))
             detay["ihlaller"] = ihlaller
             self._json({"ok": True, "detay": detay})
+        except Exception as e:
+            self._json({"ok": False, "hata": str(e)})
+
+    def _kurallar_listele(self) -> None:
+        try:
+            from mizan_kontrol import KURALLAR
+            from hata_onerileri import K10_HATA_ONERILERI
+            kurallar = []
+            for k in KURALLAR:
+                kurallar.append({
+                    "id": k["id"],
+                    "tip": k["tip"],
+                    "kodlar": k.get("kodlar", []),
+                    "seviye": k.get("seviye", ""),
+                    "kosul": k.get("kosul", ""),
+                    "limit": k.get("limit"),
+                    "oneri": K10_HATA_ONERILERI.get(k["id"], ""),
+                })
+            self._json({"ok": True, "kurallar": kurallar})
         except Exception as e:
             self._json({"ok": False, "hata": str(e)})
 
