@@ -836,6 +836,27 @@ function kontrolGecmisListeYap(sonuclar, toplam) {
     '</div>';
   });
   liste.innerHTML = html;
+  if (sonuclar.length > 0) { const btn = sec("kontrolCSVBtn"); if (btn) btn.style.display = "inline-block"; }
+}
+
+function kontrolCSVIndir() {
+  if (!kontrolGecmisTumuVeriler || kontrolGecmisTumuVeriler.length === 0) return;
+  let csv = "Firma;Dosya;Durum;Hata Sayisi;Uyari Sayisi;Tarih\n";
+  kontrolGecmisTumuVeriler.forEach(s => {
+    csv += '"' + (s.firma || s.dosya || "").replace(/"/g, '""') + '";'
+      + '"' + (s.dosya || "").replace(/"/g, '""') + '";'
+      + (s.durum || "") + ";"
+      + (s.hata_sayisi || 0) + ";"
+      + (s.uyari_sayisi || 0) + ";"
+      + (s.kontrol_tarihi || "") + "\n";
+  });
+  const blob = new Blob(["\uFEFF" + csv], {type: "text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "kontrol_sonuclari_" + new Date().toISOString().slice(0, 10) + ".csv";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function kontrolDetayModalKapat(e) {
