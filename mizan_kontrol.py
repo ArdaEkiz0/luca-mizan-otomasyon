@@ -33,7 +33,7 @@ KURALLAR = [
     {"id": "K1", "tip": "ana_hesap", "kodlar": ["100"], "hedef_kolon": "alacak_bakiye",
      "seviye": "HATA", "kosul": "100 ana hesap ALACAK bakiyeli olmamali (negatif olmamali)"},
     {"id": "K2", "tip": "borc_limit", "kodlar": ["100"], "limit": 3000000, "seviye": "HATA",
-     "kosul": "100 ana hesap borc tutari 3.000.000 TL yi gecmemeli"},
+     "kosul": "100 ana hesap borc bakiyesi 3.000.000 TL yi gecmemeli", "kolon": "borc_bakiye"},
     {"id": "K3", "tip": "ana_hesap", "kodlar": ["103"], "hedef_kolon": "borc_bakiye",
      "seviye": "HATA", "kosul": "103 ana hesap BORC bakiyeli olmamali"},
     {"id": "K4", "tip": "ana_hesap", "kodlar": ["101"], "hedef_kolon": "alacak_bakiye",
@@ -421,11 +421,12 @@ def _kural_uygula(kural: dict, kod: str, ad: str, satir: dict) -> Optional[Kural
 
     elif tip == "borc_limit":
         limit = kural.get("limit", 0)
-        borc = satir["borc"]
+        kolon = kural.get("kolon", "borc")
+        borc = satir.get(kolon, 0)
         if borc > limit:
             return KuralIhlali(
                 kural_id=kural["id"], hesap_kodu=kod, hesap_adi=ad,
-                mesaj=f"{kosul} (borc: {borc:,.2f}, limit: {limit:,.2f})",
+                mesaj=f"{kosul} ({kolon}: {borc:,.2f}, limit: {limit:,.2f})",
                 seviye=seviye, deger=f"{borc:,.2f}",
             )
 

@@ -1,8 +1,8 @@
 K10_HATA_ONERILERI: dict[str, str] = {
     "K1": "Hesap 100 (Ana Hesap Alacak) bakiyeli olmasi gerektiginde negatif bakiye var. "
           "Giris yapilisini kontrol edin veya odonmemis alacaklarin varligini dogrulayin.",
-    "K2": "Hesap 100 borc tutari 3.000.000 TL limitini asti. "
-          "Borc tutarini dusurun veya limit degisikligi yapin.",
+    "K2": "Hesap 100 borc bakiyesi 3.000.000 TL limitini asti. "
+          "Borc bakiyesini dusurun veya limit degisikligi yapin.",
     "K3": "Hesap 103 (Ana Hesap Borc) borc bakiyeli olmasi gerektiginde pozitif bakiye var. "
           "Borc tahsilatini kontrol edin.",
     "K4": "Hesap 101 (Ana Hesap Alacak) alacak bakiyeli olmasi gerektiginde pozitif bakiye var. "
