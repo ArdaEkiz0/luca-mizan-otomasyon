@@ -579,3 +579,11 @@ body {
 .modal-ihlaller .ihl-seviye.uyari { background: rgba(250,204,21,0.2); color: #facc15; }
 .modal-ihlaller .ihl-oneri { font-size: 11px; color: var(--turkuaz); padding: 2px 0 6px 72px; font-style: italic; }
 .modal-ihlaller .bos { color: var(--metin-soluk); font-size: 12px; padding: 8px 0; }
+.ihl-ozet { margin-bottom: 12px; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid var(--border); }
+.ihl-ozet h4 { margin: 0 0 8px 0; font-size: 12px; color: var(--turkuaz); font-weight: 600; }
+.ihl-ozet-tablo { display: flex; flex-direction: column; gap: 4px; }
+.ihl-ozet-satir { display: flex; gap: 12px; font-size: 11px; align-items: center; }
+.ihl-ozet-hesap { font-weight: 600; min-width: 60px; color: var(--metin); }
+.ihl-ozet-hata { color: var(--kirmizi); min-width: 60px; }
+.ihl-ozet-uyari { color: #facc15; min-width: 70px; }
+.ihl-ozet-toplam { color: var(--metin-soluk); }
