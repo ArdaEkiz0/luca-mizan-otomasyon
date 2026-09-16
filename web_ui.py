@@ -37,6 +37,7 @@ try:
         kontrol_sonuc_kaydet, kontrol_sonuclari_getir, istatistik_getir,
         ayar_getir, ayar_kaydet, kural_istatistik_guncelle,
         rapor_gecmis_kaydet, rapor_gecmis_getir, grafik_verisi_getir,
+        kontrol_sonuclari_toplu_kaydet,
     )
 except Exception:
     pass
@@ -781,19 +782,20 @@ class ApiHandler(BaseHTTPRequestHandler):
         })
 
         try:
+            toplu = []
             for s in sonuclar:
-                kontrol_sonuc_kaydet(
-                    dosya_adi=s["dosya"],
-                    firma_adi=s.get("firma", ""),
-                    donem=s.get("donem", ""),
-                    satir_sayisi=s.get("satir_sayisi", 0),
-                    durum=s["durum"],
-                    hata_sayisi=s.get("hata_sayisi", 0),
-                    uyari_sayisi=s.get("uyari_sayisi", 0),
-                    ihlaller=s.get("ihlaller", []),
-                )
-                for i in s.get("ihlaller", []):
-                    kural_istatistik_guncelle(i.get("kural", ""), i.get("seviye", ""))
+                toplu.append({
+                    "dosya_adi": s["dosya"],
+                    "firma_adi": s.get("firma", ""),
+                    "donem": s.get("donem", ""),
+                    "satir_sayisi": s.get("satir_sayisi", 0),
+                    "durum": s["durum"],
+                    "hata_sayisi": s.get("hata_sayisi", 0),
+                    "uyari_sayisi": s.get("uyari_sayisi", 0),
+                    "ihlaller": s.get("ihlaller", []),
+                })
+            if toplu:
+                kontrol_sonuclari_toplu_kaydet(toplu, istatistik_guncelle=True)
         except Exception:
             pass
 

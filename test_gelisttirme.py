@@ -13,6 +13,88 @@ BASE = Path(__file__).parent.resolve()
 sys.path.insert(0, str(BASE))
 
 
+class TestTopluKayit(unittest.TestCase):
+    def setUp(self):
+        import veri_tabani
+        self.db = veri_tabani
+        tmpdir = self.enterContext(tempfile.TemporaryDirectory(dir=Path.cwd()))
+        self.enterContext(patch.object(self.db, "_db_yol", return_value=Path(tmpdir) / "toplu.db"))
+
+    def test_bos_liste_baglanti_acmaz(self):
+        with patch.object(self.db, "baglanti_olustur") as baglanti:
+            self.assertEqual(self.db.kontrol_sonuclari_toplu_kaydet([]), [])
+            baglanti.assert_not_called()
+
+    def test_tekli_ile_ayni_veri_ve_sirali_idler(self):
+        kayitlar = [
+            {"dosya_adi": "a.xlsx", "firma_adi": "Firma", "donem": "Ocak",
+             "satir_sayisi": 10, "durum": "HATA", "hata_sayisi": 1, "yil": "2025",
+             "sinif": "2", "kontrol_dosyasi": "a_KONTROL.xlsx",
+             "ihlaller": [{"kural": "K1", "hesap": "100", "ad": "Kasa",
+                           "seviye": "HATA", "deger": "1", "mesaj": "Test"}]},
+            {"dosya_adi": "b.xlsx", "ihlaller": None},
+        ]
+        orijinal = json.dumps(kayitlar)
+        tekli = [self.db.kontrol_sonuc_kaydet(**k) for k in kayitlar]
+        with patch.object(self.db, "baglanti_olustur", wraps=self.db.baglanti_olustur) as baglanti:
+            toplu = self.db.kontrol_sonuclari_toplu_kaydet(kayitlar)
+            baglanti.assert_called_once()
+        self.assertEqual(toplu, sorted(set(toplu)))
+        self.assertEqual(len(toplu), len(kayitlar))
+        rows = {r["id"]: r for r in self.db.kontrol_sonuclari_getir()}
+        for a, b in zip(tekli, toplu):
+            for key in rows[a].keys() - {"id", "kontrol_tarihi"}:
+                self.assertEqual(rows[a][key], rows[b][key])
+            temizle = lambda r: {k: v for k, v in r.items() if k not in ("id", "kontrol_id")}
+            self.assertEqual([temizle(r) for r in self.db.ihlaller_getir(a)],
+                             [temizle(r) for r in self.db.ihlaller_getir(b)])
+        self.assertEqual(json.dumps(kayitlar), orijinal)
+        self.assertEqual(self.db.istatistik_getir()["kurallar"], {})
+
+    def test_hata_tum_toplu_islemi_geri_alir(self):
+        import sqlite3
+        onceki = self.db.kontrol_sonuc_kaydet("onceki.xlsx")
+        for bozuk in ({"dosya_adi": None}, {"dosya_adi": "b.xlsx", "ihlaller": [
+                {"kural": "K1", "hesap": "100", "seviye": None}]}):
+            with self.subTest(bozuk=bozuk):
+                with self.assertRaises(sqlite3.IntegrityError):
+                    self.db.kontrol_sonuclari_toplu_kaydet([
+                        {"dosya_adi": "a.xlsx", "ihlaller": [{"kural": "K1", "seviye": "HATA"}]},
+                        bozuk,
+                    ], istatistik_guncelle=True)
+                self.assertEqual([r["id"] for r in self.db.kontrol_sonuclari_getir()], [onceki])
+                conn = self.db.baglanti_olustur()
+                try:
+                    self.assertEqual(conn.execute("SELECT COUNT(*) FROM hata_ihlalleri").fetchone()[0], 0)
+                finally:
+                    conn.close()
+                self.assertEqual(self.db.istatistik_getir()["kurallar"], {})
+
+    def test_istatistikler_tek_baglantida_birer_kez_artar(self):
+        ihlaller = [{"kural": "K1", "seviye": "HATA"},
+                    {"kural_id": "K1", "seviye": "UYARI"}]
+        self.db.kural_istatistik_guncelle("K1", "HATA")
+        with patch.object(self.db, "baglanti_olustur", wraps=self.db.baglanti_olustur) as baglanti:
+            self.db.kontrol_sonuclari_toplu_kaydet(
+                [{"dosya_adi": "a.xlsx", "ihlaller": ihlaller}], istatistik_guncelle=True)
+            baglanti.assert_called_once()
+        self.assertEqual(self.db.istatistik_getir()["kurallar"]["K1"],
+                         {"toplam": 3, "hata": 2, "uyari": 1})
+
+    def test_commit_hatasinda_rollback_ve_kapatma(self):
+        import sqlite3
+        from unittest.mock import MagicMock
+        conn = self.db.baglanti_olustur()
+        proxy = MagicMock(wraps=conn)
+        proxy.commit.side_effect = sqlite3.OperationalError("commit failed")
+        with patch.object(self.db, "baglanti_olustur", return_value=proxy):
+            with self.assertRaises(sqlite3.OperationalError):
+                self.db.kontrol_sonuclari_toplu_kaydet([{"dosya_adi": "a.xlsx"}])
+        proxy.rollback.assert_called_once()
+        proxy.close.assert_called_once()
+        self.assertEqual(self.db.kontrol_sonuclari_getir(), [])
+
+
 class TestVeriTabaniRegresyon(unittest.TestCase):
     def setUp(self):
         self.enterContext(patch.dict(sys.modules, {

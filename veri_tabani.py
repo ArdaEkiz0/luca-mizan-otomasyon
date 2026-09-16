@@ -85,6 +85,15 @@ def _tablolar_olustur(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def _ihlal_normalize(i: dict) -> dict:
+    """Web/guncel anahtar farklarini kanonik hale getirir."""
+    kanonik = dict(i)
+    kanonik["kural_id"] = i.get("kural_id") or i.get("kural", "")
+    kanonik["hesap_kodu"] = i.get("hesap_kodu") or i.get("hesap", "")
+    kanonik["hesap_adi"] = i.get("hesap_adi") or i.get("ad", "")
+    return kanonik
+
+
 def kontrol_sonuc_kaydet(
     dosya_adi: str,
     firma_adi: str = "",
@@ -98,13 +107,7 @@ def kontrol_sonuc_kaydet(
     sinif: str = "1",
     kontrol_dosyasi: str = None,
 ) -> int:
-    kayit_ihlaller = []
-    for i in (ihlaller or []):
-        kanonik = dict(i)
-        kanonik["kural_id"] = i.get("kural_id") or i.get("kural", "")
-        kanonik["hesap_kodu"] = i.get("hesap_kodu") or i.get("hesap", "")
-        kanonik["hesap_adi"] = i.get("hesap_adi") or i.get("ad", "")
-        kayit_ihlaller.append(kanonik)
+    kayit_ihlaller = [_ihlal_normalize(i) for i in (ihlaller or [])]
     conn = baglanti_olustur()
     c = conn.cursor()
     c.execute(
@@ -129,6 +132,66 @@ def kontrol_sonuc_kaydet(
     conn.commit()
     conn.close()
     return kontrol_id
+
+
+def kontrol_sonuclari_toplu_kaydet(kayitlar: list, istatistik_guncelle: bool = False) -> list[int]:
+    """Birden fazla kontrol sonucunu tek baglanti ve tek islemle kaydeder.
+
+    kayitlar: kontrol_sonuc_kaydet ile ayni anahtarları kabul eden dict listesi.
+    istatistik_guncelle: ihlal kural istatistiklerini de gunceller.
+    Herhangi bir kayit basarisiz olursa tum islem geri alinir.
+    Dondurulen liste, her kaydin kontrol_id'sini icerir.
+    """
+    if not kayitlar:
+        return []
+    conn = baglanti_olustur()
+    c = conn.cursor()
+    idler: list[int] = []
+    try:
+        simdi = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        for kayit in kayitlar:
+            ihlaller = [_ihlal_normalize(i) for i in (kayit.get("ihlaller") or [])]
+            c.execute(
+                """INSERT INTO kontrol_sonuclari
+                   (dosya_adi, firma_adi, donem, satir_sayisi, durum, hata_sayisi,
+                    uyari_sayisi, ihlaller_json, kontrol_tarihi, yil, sinif, kontrol_dosyasi)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (kayit.get("dosya_adi", ""), kayit.get("firma_adi", ""),
+                 kayit.get("donem", ""), kayit.get("satir_sayisi", 0),
+                 kayit.get("durum", "OK"), kayit.get("hata_sayisi", 0),
+                 kayit.get("uyari_sayisi", 0), json.dumps(ihlaller), simdi,
+                 kayit.get("yil", "2026"), kayit.get("sinif", "1"),
+                 kayit.get("kontrol_dosyasi")),
+            )
+            kontrol_id = c.lastrowid
+            for i in ihlaller:
+                c.execute(
+                    """INSERT INTO hata_ihlalleri
+                       (kontrol_id, kural_id, hesap_kodu, hesap_adi, seviye, deger, mesaj)
+                       VALUES (?,?,?,?,?,?,?)""",
+                    (kontrol_id, i["kural_id"], i["hesap_kodu"],
+                     i["hesap_adi"], i.get("seviye", ""), i.get("deger", ""),
+                     i.get("mesaj", "")),
+                )
+                if istatistik_guncelle:
+                    seviye = i.get("seviye", "")
+                    c.execute(
+                        """INSERT INTO kural_istatistik_db (kural_id, toplam, hata, uyari)
+                           VALUES (?,1,?,?) ON CONFLICT(kural_id) DO UPDATE SET
+                           toplam = toplam + 1,
+                           hata = hata + (CASE WHEN excluded.hata > 0 THEN 1 ELSE 0 END),
+                           uyari = uyari + (CASE WHEN excluded.uyari > 0 THEN 1 ELSE 0 END)""",
+                        (i["kural_id"], 1 if seviye == "HATA" else 0,
+                         1 if seviye == "UYARI" else 0),
+                    )
+            idler.append(kontrol_id)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    return idler
 
 
 def kontrol_sonuclari_getir(
