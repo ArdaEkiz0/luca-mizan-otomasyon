@@ -130,6 +130,8 @@ def kontrol_sonuclari_getir(
     gunun: str = None,
     gun: int = None,
     yil: str = None,
+    baslangic: str = None,
+    bitis: str = None,
     limit: int = 100,
 ) -> list:
     conn = baglanti_olustur()
@@ -151,6 +153,12 @@ def kontrol_sonuclari_getir(
     if yil:
         query += " AND yil = ?"
         params.append(yil)
+    if baslangic:
+        query += " AND kontrol_tarihi >= ?"
+        params.append(baslangic)
+    if bitis:
+        query += " AND kontrol_tarihi <= ?"
+        params.append(bitis)
     query += " ORDER BY kontrol_tarihi DESC LIMIT ?"
     params.append(limit)
     rows = c.execute(query, params).fetchall()

@@ -1320,17 +1320,29 @@ function kayitOlustur(s) {
 
 function kontrolFiltreleAra() {
   const arama = (sec("kontrolArama")?.value || "").toLocaleLowerCase("tr");
+  const baslangic = sec("kontrolBaslangic")?.value || "";
+  const bitis = sec("kontrolBitis")?.value || "";
   const liste = sec("kontrolListe");
   liste.innerHTML = "";
   let kaynak = kontrolFiltreli === "tum" ? kontrolSonuclari : kontrolSonuclari.filter(s => s.durum === kontrolFiltreli);
   if (arama) {
     kaynak = kaynak.filter(s => (s.firma || "").toLocaleLowerCase("tr").includes(arama) || (s.dosya || "").toLocaleLowerCase("tr").includes(arama));
   }
+  if (baslangic) {
+    kaynak = kaynak.filter(s => (s.kontrol_tarihi || "") >= baslangic);
+  }
+  if (bitis) {
+    kaynak = kaynak.filter(s => (s.kontrol_tarihi || "") <= bitis);
+  }
   if (kaynak.length === 0) {
     liste.innerHTML = '<div class="bos-liste">Eslesen kayit yok.</div>';
     return;
   }
   kaynak.forEach(s => kayitOlustur(s));
+}
+
+function kontrolTarihFiltrele() {
+  kontrolFiltreleAra();
 }
 
 function kontrolFiltrele(filtre) {

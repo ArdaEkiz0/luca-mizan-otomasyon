@@ -167,7 +167,9 @@
       <span class="ikon">&#9989;</span>
       <h2 id="kontrolBaslik">Mizan Kontrolu</h2>
       <div class="sag-butonlar">
-        <input class="arama" id="kontrolArama" type="text" placeholder="Firma ara..." oninput="kontrolFiltreleAra()">
+        <input class="arama" id="kontrolArama" type="text" placeholder="Firma ara..." oninput="kontrolFiltreleAra()" style="width:140px;">
+        <input class="arama" id="kontrolBaslangic" type="date" onchange="kontrolTarihFiltrele()" style="width:140px;">
+        <input class="arama" id="kontrolBitis" type="date" onchange="kontrolTarihFiltrele()" style="width:140px;">
         <button class="btn btn-mor btn-kucuk" onclick="mizanKontrol()" id="kontrolBtn">Raporlari Kontrol Et</button>
         <button class="btn btn-gri btn-kucuk" onclick="kontrolGecmisAc()">📜 Geçmiş</button>
         <button class="btn btn-gri btn-kucuk" onclick="kurallarAc()">📋 Kurallar</button>
