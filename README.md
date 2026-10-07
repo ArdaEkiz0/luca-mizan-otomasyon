@@ -1,5 +1,7 @@
 # Luca Mizan Raporu Otomasyonu
 
+[![CI](https://github.com/ArdaEkiz0/luca-mizan-otomasyon/actions/workflows/ci.yml/badge.svg)](https://github.com/ArdaEkiz0/luca-mizan-otomasyon/actions)
+
 LUCA Mali Müşavir Paketi'nde müşteri mizan raporlarını otomatik oluşturan,
 **modern animasyonlu arayüzlü bir web uygulaması**.
 
